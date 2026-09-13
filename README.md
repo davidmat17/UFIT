@@ -73,22 +73,25 @@ Cada carpeta tiene **un solo dueño**. Es la regla que evita conflictos de Git: 
 
 **Ramas**
 
-- `main` — solo entregas etiquetadas. Nunca se trabaja aquí.
-- `develop` — rama de integración. Siempre tiene que compilar.
+- `main` — la rama del proyecto. Siempre tiene que compilar. Nunca se commitea estando parado en ella.
 - `feat/<módulo>-rf<NN>` — una rama por requerimiento, viva máximo una semana.
 
 **Flujo de cada requerimiento**
 
 ```powershell
-git switch develop
-git pull --rebase origin develop
+git switch main
+git pull --rebase origin main
 git switch -c feat/reservas-rf02
 # ... trabajas, commiteas ...
-git pull --rebase origin develop   # antes de abrir el PR
+git pull --rebase origin main   # antes de abrir el PR
 git push -u origin feat/reservas-rf02
 ```
 
-Luego abres el Pull Request contra `develop` en GitHub. **Lo revisa y aprueba el otro**, no tú mismo.
+Luego abres el Pull Request contra `main` en GitHub. **Lo revisa y aprueba el otro**, no tú mismo. El merge lo hace GitHub, no se sube nada directo a `main`.
+
+**Versiones**
+
+Cada entrega se marca con una etiqueta sobre `main`: `v0.1` (cimientos), `v0.5` (MVP), `v0.9` (alcance completo), `v1.0` (entrega final). Los tags son los que permiten volver a cualquier entrega.
 
 **Commits**
 
@@ -105,7 +108,7 @@ Hay un issue por requerimiento en GitHub Projects. Referencia el número en el P
 | Fecha | Hito |
 |---|---|
 | 12 sep | Stack elegido y repositorio creado |
-| 19 sep | Modelo de datos congelado y esqueleto en `develop` |
+| 19 sep | Modelo de datos congelado y esqueleto integrado |
 | 26 sep | RF1 y RF5 integrados |
 | 10 oct | Primer corte de integración |
 | 20 oct | MVP completo (RF1–RF5, RF11) |
