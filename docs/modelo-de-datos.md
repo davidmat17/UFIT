@@ -28,27 +28,27 @@ Las cinco que definen la forma del modelo, con lo que implican.
 
 ```mermaid
 erDiagram
-    PERFILES ||--o{ RESERVAS : "hace"
-    PERFILES ||--o| MEDIDAS_ANTROPOMETRICAS : "tiene"
-    PERFILES ||--o{ RUTINAS : "arma"
-    PERFILES ||--o{ ASIGNACIONES_INSTRUCTOR : "cubre"
-    PERFILES ||--o{ NORMATIVA : "publica"
+    PERFILES ||--o{ RESERVAS : hace
+    PERFILES ||--o| MEDIDAS : tiene
+    PERFILES ||--o{ RUTINAS : arma
+    PERFILES ||--o{ ASIGNACIONES : cubre
+    PERFILES ||--o{ NORMATIVA : publica
 
-    FRANJAS  ||--o{ RESERVAS : "recibe"
-    FRANJAS  ||--o{ ASIGNACIONES_INSTRUCTOR : "tiene"
+    FRANJAS ||--o{ RESERVAS : recibe
+    FRANJAS ||--o{ ASIGNACIONES : tiene
 
-    ZONAS    ||--o{ MAQUINAS : "agrupa"
-    ZONAS    ||--o{ RESERVAS : "destino de"
-    ZONAS    ||--o{ ASIGNACIONES_INSTRUCTOR : "ubica"
+    ZONAS ||--o{ MAQUINAS : agrupa
+    ZONAS ||--o{ RESERVAS : destino
+    ZONAS ||--o{ ASIGNACIONES : ubica
 
-    RESERVAS ||--o| ASISTENCIAS : "se cumple con"
+    RESERVAS ||--o| ASISTENCIAS : cumple
 
-    MAQUINAS   ||--o{ EJERCICIO_MAQUINA : ""
-    EJERCICIOS ||--o{ EJERCICIO_MAQUINA : ""
+    MAQUINAS ||--o{ EJERCICIO_MAQUINA : sirve
+    EJERCICIOS ||--o{ EJERCICIO_MAQUINA : usa
 
-    RUTINAS    ||--o{ RUTINA_EJERCICIOS : "contiene"
-    EJERCICIOS ||--o{ RUTINA_EJERCICIOS : "aparece en"
-    MAQUINAS   ||--o{ RUTINA_EJERCICIOS : "se usa en"
+    RUTINAS ||--o{ RUTINA_EJERCICIOS : contiene
+    EJERCICIOS ||--o{ RUTINA_EJERCICIOS : aparece
+    MAQUINAS ||--o{ RUTINA_EJERCICIOS : equipa
 
     PERFILES {
         uuid id PK
@@ -57,8 +57,8 @@ erDiagram
         text documento UK
         text correo UK
         text telefono
-        enum rol
-        bool activo
+        rol_usuario rol
+        boolean activo
     }
     FRANJAS {
         bigint id PK
@@ -66,7 +66,7 @@ erDiagram
         time hora_inicio
         time hora_fin
         smallint cupo_total
-        enum estado
+        estado_franja estado
     }
     RESERVAS {
         bigint id PK
@@ -74,69 +74,77 @@ erDiagram
         bigint franja_id FK
         date fecha
         smallint zona_id FK
-        enum estado
+        estado_reserva estado
         uuid codigo_qr UK
+        timestamptz cancelada_en
     }
     ASISTENCIAS {
         bigint id PK
-        bigint reserva_id FK_UK
+        bigint reserva_id FK
         timestamptz registrada_en
+        uuid registrada_por FK
     }
     ZONAS {
         smallint id PK
         text nombre UK
-        bool activa
+        text descripcion
+        boolean activa
     }
     MAQUINAS {
         bigint id PK
         smallint zona_id FK
         text nombre
         smallint cantidad
-        enum estado
+        estado_maquina estado
     }
     EJERCICIOS {
         bigint id PK
         text nombre UK
         text grupo_muscular
+        text descripcion
     }
     EJERCICIO_MAQUINA {
-        bigint ejercicio_id PK_FK
-        bigint maquina_id PK_FK
+        bigint ejercicio_id PK
+        bigint maquina_id PK
     }
     RUTINAS {
         bigint id PK
         uuid perfil_id FK
         text nombre
+        timestamptz creada_en
     }
     RUTINA_EJERCICIOS {
         bigint id PK
         bigint rutina_id FK
         bigint ejercicio_id FK
         bigint maquina_id FK
-        smallint_array dias
+        arreglo dias
         smallint series
         smallint repeticiones
     }
-    MEDIDAS_ANTROPOMETRICAS {
-        uuid perfil_id PK_FK
+    MEDIDAS {
+        uuid perfil_id PK
         numeric peso_kg
         numeric estatura_cm
         numeric circ_cintura_cm
+        timestamptz actualizado_en
     }
     NORMATIVA {
         bigint id PK
         text titulo
         text contenido
         smallint version
-        bool vigente
+        boolean vigente
     }
-    ASIGNACIONES_INSTRUCTOR {
+    ASIGNACIONES {
         bigint id PK
         uuid instructor_id FK
         bigint franja_id FK
         smallint zona_id FK
     }
 ```
+
+> En el diagrama, `MEDIDAS` es `medidas_antropometricas` y `ASIGNACIONES` es `asignaciones_instructor`; se acortaron para que las cajas quepan. `reserva_id` en `ASISTENCIAS` además es única: una reserva tiene como mucho un ingreso.
 
 ---
 
