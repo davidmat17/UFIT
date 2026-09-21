@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../catalogo_requerimientos.dart';
 import '../modelos/requerimiento.dart';
+import '../rutas.dart';
 
 /// Menu provisional de desarrollo.
 ///
@@ -19,6 +20,13 @@ class PantallaInicio extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('UFIT'),
+        actions: <Widget>[
+          IconButton(
+            tooltip: 'Probar la conexión con Supabase',
+            icon: const Icon(Icons.cloud_outlined),
+            onPressed: () => Navigator.pushNamed(context, Rutas.diagnostico),
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(height: 1, color: esquema.outlineVariant),

@@ -46,3 +46,8 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Credenciales de Supabase. Nunca se suben: cada quien crea su .env
+# a partir de .env.example.
+.env
+.env.local

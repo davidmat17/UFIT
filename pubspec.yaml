@@ -34,6 +34,8 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  supabase_flutter: ^2.17.2
+  flutter_dotenv: ^6.0.1
 
 dev_dependencies:
   flutter_test:
@@ -56,6 +58,12 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # El archivo .env se empaqueta con la app para poder leerlo en
+  # tiempo de ejecución. No está en el repositorio: cada quien crea
+  # el suyo a partir de .env.example.
+  assets:
+    - .env
 
   # To add assets to your application, add an assets section, like this:
   # assets:
