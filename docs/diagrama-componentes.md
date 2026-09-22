@@ -31,10 +31,10 @@ flowchart TB
         camara["Cámara del dispositivo"]
     end
 
-    iDatos((["Datos"]))
-    iAuth((["Autenticación"]))
-    iRpc((["Operaciones"]))
-    iCamara((["Captura"]))
+    iDatos((Datos))
+    iAuth((Autenticación))
+    iRpc((Operaciones))
+    iCamara((Captura))
 
     subgraph nube["Supabase · nube"]
         auth["Autenticación<br/>registro, sesión, tokens"]
