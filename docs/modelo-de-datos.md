@@ -2,7 +2,7 @@
 
 **Estado: congelado el 21 de septiembre de 2026.**
 
-Este documento y `supabase/schema.sql` son el contrato entre David y Sergio. Los nombres de tablas y columnas que están aquí son los que el código puede usar; ninguno de los dos los cambia por su cuenta.
+Los nombres de tablas y columnas que están aquí son los que el código puede usar; ninguno de los dos los cambia por su cuenta.
 
 Para cambiar algo: se abre un issue, se discute en la sesión del sábado y, si los dos están de acuerdo, se modifica el `schema.sql` en una rama `chore/` con su Pull Request. Un cambio silencioso rompe el módulo del otro sin que se note hasta la integración.
 
@@ -209,47 +209,3 @@ No están solo en el código de la app. Están en la base, así que se cumplen a
 Esas políticas de RLS importan más de lo que parece: la clave pública de Supabase viaja dentro de la app, así que cualquiera que la extraiga puede consultar la base directamente. Sin RLS, podría leer las medidas corporales de todos los usuarios.
 
 ---
-
-## Quién escribe cada tabla
-
-Este es el reparto que evita que dos personas toquen lo mismo. "Lee" significa que ese módulo consulta la tabla pero nunca la modifica.
-
-| Tabla | Escribe | Lee |
-|---|---|---|
-| `perfiles` | cuenta (David) | todos |
-| `medidas_antropometricas` | cuenta (David) | — |
-| `franjas` | admin (Sergio) | reservas (David) |
-| `reservas` | reservas (David) | admin (Sergio) |
-| `asistencias` | reservas (David) | admin (Sergio) |
-| `zonas`, `maquinas`, `ejercicios`, `ejercicio_maquina` | admin (Sergio) | reservas (David), entrenamiento (Sergio) |
-| `normativa` | admin (Sergio) | gimnasio (Sergio) |
-| `asignaciones_instructor` | admin (Sergio) | gimnasio (Sergio) |
-| `rutinas`, `rutina_ejercicios` | entrenamiento (Sergio) | — |
-
-La única dependencia cruzada real sigue siendo la misma del plan de trabajo: el módulo de administración de Sergio lee las reservas y asistencias de David para el RF12. Por eso el modelo se congela.
-
----
-
-## Cómo aplicarlo
-
-1. Crear el proyecto en [supabase.com](https://supabase.com) — plan gratuito, región `East US` o la más cercana.
-2. En el panel: **SQL Editor** → **New query** → pegar todo `supabase/schema.sql` → **Run**.
-3. Guardar la URL del proyecto y la clave `anon` para configurarlas en la app. **La clave `service_role` no se usa nunca en la app ni se sube al repositorio.**
-4. Verificar en **Table Editor** que aparezcan las trece tablas con sus datos semilla.
-
-El script deja listas las zonas, nueve máquinas, siete ejercicios, la normativa y las franjas de las próximas cuatro semanas, para que las pantallas tengan algo que mostrar mientras se programan.
-
-> Los proyectos gratuitos de Supabase se pausan tras siete días sin actividad. Se reactivan con un clic desde el panel; si eso pasa a mitad de una sesión de trabajo, no es un error de la app.
-
----
-
-## Fuera del modelo
-
-Cosas que deliberadamente **no** están, para que nadie las dé por hechas:
-
-- Historial de medidas corporales.
-- Aforo por zona.
-- Reservas de máquinas individuales.
-- Notificaciones o recordatorios.
-- Pagos o membresías.
-- Reservas recurrentes: el RF2 las menciona y la historia HU07 las cubre, pero son la primera candidata a recortar según el plan. Cuando se implementen, se resuelven creando varias filas en `reservas`, sin tabla nueva.
