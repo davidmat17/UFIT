@@ -1,27 +1,42 @@
 import 'package:flutter/material.dart';
 
-import 'core/catalogo_requerimientos.dart';
-import 'core/modelos/requerimiento.dart';
-import 'core/pantallas/pantalla_diagnostico.dart';
-import 'core/pantallas/pantalla_inicio.dart';
+import 'core/datos/repositorios.dart';
 import 'core/rutas.dart';
 import 'core/supabase/supabase_config.dart';
 import 'core/tema/app_theme.dart';
+import 'desarrollo/catalogo_requerimientos.dart';
+import 'desarrollo/modelo_requerimiento.dart';
+import 'desarrollo/pantalla_diagnostico.dart';
+import 'desarrollo/pantalla_inicio.dart';
+import 'features/admin/datos/repositorio_admin_supabase.dart';
+import 'features/cuenta/datos/repositorio_perfiles_supabase.dart';
+import 'features/entrenamiento/datos/repositorio_entrenamiento_supabase.dart';
+import 'features/gimnasio/datos/repositorio_gimnasio_supabase.dart';
+import 'features/reservas/datos/repositorio_reservas_supabase.dart';
 
+/// Punto de composición de la aplicación.
+///
+/// Es el único archivo autorizado a conocer al tiempo el núcleo, los
+/// cinco módulos y Supabase: aquí se decide qué implementación concreta
+/// llena cada puerto. Si mañana se cambia de backend, se cambia este
+/// archivo y los adaptadores, y ninguna pantalla se entera.
 Future<void> main() async {
-  // Obligatorio antes de cualquier await en main: prepara el puente
-  // entre Dart y Android para que se puedan leer archivos.
   WidgetsFlutterBinding.ensureInitialized();
 
-  // La app arranca aunque Supabase falle. Si esperáramos aquí sin
-  // atrapar el error, una credencial mal escrita dejaría la pantalla
-  // congelada en el logo, sin ninguna pista de qué pasó.
   String? errorDeArranque;
   try {
     await SupabaseConfig.inicializar();
   } catch (e) {
     errorDeArranque = e.toString();
   }
+
+  Repositorios.registrar(
+    perfiles: const RepositorioPerfilesSupabase(),
+    gimnasio: const RepositorioGimnasioSupabase(),
+    reservas: const RepositorioReservasSupabase(),
+    entrenamiento: const RepositorioEntrenamientoSupabase(),
+    admin: const RepositorioAdminSupabase(),
+  );
 
   runApp(UfitApp(errorDeArranque: errorDeArranque));
 }
