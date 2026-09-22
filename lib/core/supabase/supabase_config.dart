@@ -44,7 +44,9 @@ class SupabaseConfig {
       );
     }
 
-    await Supabase.initialize(url: url, anonKey: clave);
+    // publishableKey reemplaza al antiguo anonKey, que Supabase retira
+    // a finales de 2026.
+    await Supabase.initialize(url: url, publishableKey: clave);
   }
 
   /// Punto de entrada a la base de datos desde cualquier pantalla.
