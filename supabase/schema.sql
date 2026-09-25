@@ -42,7 +42,13 @@ create table public.perfiles (
   rol             public.rol_usuario not null default 'usuario',
   activo          boolean not null default true,
   creado_en       timestamptz not null default now(),
-  actualizado_en  timestamptz not null default now()
+  actualizado_en  timestamptz not null default now(),
+
+  -- RF1: solo cuentas institucionales. Microsoft deja entrar a
+  -- cualquier cuenta; esta restricción es la barrera real.
+  constraint perfiles_correo_institucional check (
+    lower(correo) like '%@uis.edu.co' or lower(correo) like '%@correo.uis.edu.co'
+  )
 );
 
 comment on table public.perfiles is
@@ -439,11 +445,25 @@ alter table public.asignaciones_instructor  enable row level security;
 create policy perfiles_ver_propio on public.perfiles
   for select using (id = auth.uid() or public.es_administrador());
 
+-- Al crear el perfil, el correo tiene que ser el de la sesión: nadie se
+-- registra con el correo de otro.
 create policy perfiles_crear_propio on public.perfiles
-  for insert with check (id = auth.uid());
+  for insert with check (
+    id = auth.uid()
+    and lower(correo) = lower(coalesce(auth.jwt() ->> 'email', ''))
+  );
 
 create policy perfiles_editar_propio on public.perfiles
   for update using (id = auth.uid()) with check (id = auth.uid());
+
+-- Permisos por columna: las políticas dicen qué filas, esto dice qué
+-- columnas. Sin esto, un usuario podría ponerse rol administrador.
+-- rol, activo y correo se cambian desde el panel o por el RF13.
+revoke insert, update on public.perfiles from anon, authenticated;
+grant insert (id, nombre, apellido, documento, correo, telefono)
+  on public.perfiles to authenticated;
+grant update (nombre, apellido, telefono)
+  on public.perfiles to authenticated;
 
 -- Catálogo, franjas y normativa: los lee cualquiera que haya iniciado
 -- sesión; la normativa vigente la lee incluso quien no inició sesión

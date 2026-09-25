@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Supabase se consulta por internet. En modo debug Flutter lo
+         agrega solo, pero el APK de entrega (release) lo necesita aquí. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="ufit"
         android:name="${applicationName}"
@@ -24,6 +27,20 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+            <!-- Enlace propio de la app para el retorno de OAuth (RF1).
+                 Cuando Microsoft termina de verificar la identidad,
+                 Supabase reenvia a esta direccion y Android se la
+                 entrega a UFIT. Tiene que coincidir con la que esta
+                 registrada en Supabase (Authentication - URL
+                 Configuration - Redirect URLs). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="io.supabase.ufit"
+                      android:host="login-callback"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
@@ -40,6 +57,12 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Para abrir la pagina de inicio de sesion de Microsoft (RF1)
+             en el navegador del telefono. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
         </intent>
     </queries>
 </manifest>
