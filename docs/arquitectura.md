@@ -103,6 +103,14 @@ Repositorios.registrar(
 
 Es el único archivo autorizado a conocer el núcleo, los cinco módulos y Supabase al mismo tiempo. Concentrar ahí ese conocimiento es lo que permite que todo lo demás esté desacoplado.
 
+El arranque sigue la misma idea. La compuerta de sesión del RF1 (`CompuertaDeSesion`) decide si se ve el ingreso, el registro o la app, pero no sabe qué es "la app": la recibe de `main.dart` como parámetro.
+
+```dart
+home: CompuertaDeSesion(inicio: (_) => const PantallaInicio()),
+```
+
+Así el módulo de cuenta controla el acceso sin importar ningún otro módulo. Cuando exista la pantalla principal real, se cambia esa línea y nada más.
+
 ---
 
 ## Qué compra esto, en concreto
@@ -131,7 +139,7 @@ Esa es la diferencia entre tener pruebas y decir que se tienen. Sin la frontera,
 
 **Las entidades del dominio viven en el núcleo y las comparten los cinco módulos.** Es un acoplamiento aceptado a propósito: son el reflejo del modelo de datos, que ya es común. Separarlas por módulo obligaría a duplicar y traducir.
 
-**El andamio de desarrollo sí conoce todos los módulos.** `lib/desarrollo/catalogo_requerimientos.dart` importa las trece pantallas para armar el menú de desarrollo. Está aislado en su propia carpeta y exento de las pruebas de arquitectura, y desaparece cuando el RF1 tome el arranque de la app. Está documentado aquí precisamente para que no pase por una violación involuntaria.
+**El andamio de desarrollo sí conoce todos los módulos.** `lib/desarrollo/catalogo_requerimientos.dart` importa las trece pantallas para armar el menú de desarrollo. Está aislado en su propia carpeta y exento de las pruebas de arquitectura, y desaparece cuando exista la pantalla principal. Desde el RF1 ya solo se llega a él después de iniciar sesión. Está documentado aquí precisamente para que no pase por una violación involuntaria.
 
 ---
 

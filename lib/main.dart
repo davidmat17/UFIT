@@ -10,6 +10,7 @@ import 'desarrollo/pantalla_diagnostico.dart';
 import 'desarrollo/pantalla_inicio.dart';
 import 'features/admin/datos/repositorio_admin_supabase.dart';
 import 'features/cuenta/datos/repositorio_perfiles_supabase.dart';
+import 'features/cuenta/pantallas/rf01_autenticacion.dart';
 import 'features/entrenamiento/datos/repositorio_entrenamiento_supabase.dart';
 import 'features/gimnasio/datos/repositorio_gimnasio_supabase.dart';
 import 'features/reservas/datos/repositorio_reservas_supabase.dart';
@@ -54,8 +55,11 @@ class UfitApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.claro,
       darkTheme: AppTheme.oscuro,
+      // La compuerta del RF1 decide si se ve el ingreso, el registro o
+      // el inicio. El inicio todavía es el menú de desarrollo; cuando
+      // exista la pantalla principal real, se cambia solo esta línea.
       home: errorDeArranque == null
-          ? const PantallaInicio()
+          ? CompuertaDeSesion(inicio: (_) => const PantallaInicio())
           : PantallaErrorArranque(mensaje: errorDeArranque!),
       routes: <String, WidgetBuilder>{
         Rutas.diagnostico: (_) => const PantallaDiagnostico(),
