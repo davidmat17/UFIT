@@ -1,5 +1,5 @@
-import 'modelos/requerimiento.dart';
-import 'rutas.dart';
+import 'modelo_requerimiento.dart';
+import '../core/rutas.dart';
 
 import '../features/admin/pantallas/rf12_estadisticas.dart';
 import '../features/admin/pantallas/rf13_gestion_contenidos.dart';

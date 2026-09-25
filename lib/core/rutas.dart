@@ -8,6 +8,9 @@ class Rutas {
 
   static const String inicio = '/';
 
+  /// Pantalla de desarrollo: comprueba la conexión con Supabase.
+  static const String diagnostico = '/diagnostico';
+
   // Cuenta y perfil
   static const String rf01Autenticacion = '/rf01-autenticacion';
   static const String rf08Antropometria = '/rf08-antropometria';
