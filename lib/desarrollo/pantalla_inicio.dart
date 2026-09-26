@@ -8,7 +8,8 @@ import '../core/rutas.dart';
 ///
 /// Lista los 13 requerimientos agrupados por modulo para poder entrar a
 /// cualquier pantalla mientras se construye. No es una pantalla de la
-/// app final: la reemplazara el inicio de sesion (RF1).
+/// app final. Desde el RF1 se llega aquí solo después de iniciar sesión,
+/// y se reemplaza cuando exista la pantalla principal real.
 class PantallaInicio extends StatelessWidget {
   const PantallaInicio({super.key});
 
@@ -21,6 +22,12 @@ class PantallaInicio extends StatelessWidget {
       appBar: AppBar(
         title: const Text('UFIT'),
         actions: <Widget>[
+          IconButton(
+            tooltip: 'Mi cuenta',
+            icon: const Icon(Icons.account_circle_outlined),
+            onPressed: () =>
+                Navigator.pushNamed(context, Rutas.rf01Autenticacion),
+          ),
           IconButton(
             tooltip: 'Probar la conexión con Supabase',
             icon: const Icon(Icons.cloud_outlined),
@@ -42,7 +49,8 @@ class PantallaInicio extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             'Menu de desarrollo con los 13 requerimientos funcionales. '
-            'Desaparece cuando el inicio de sesion (RF1) tome su lugar.',
+            'Se llega aquí después de iniciar sesión (RF1). Lo reemplaza '
+            'la pantalla principal cuando exista.',
             style: textos.bodySmall?.copyWith(color: esquema.onSurfaceVariant),
           ),
           const SizedBox(height: 8),

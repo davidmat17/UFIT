@@ -14,12 +14,15 @@ ErrorDeDatos traducirError(Object e, String mensajeGeneral) {
   if (e is AuthException) {
     return ErrorDeDatos(
       TipoDeError.credencialesInvalidas,
-      'Correo o contraseña incorrectos.',
+      'No se pudo verificar tu cuenta institucional. '
+      'Vuelve a ingresar con tu correo de la UIS.',
       causa: e,
     );
   }
 
   if (e is PostgrestException) {
+    // Permiso negado por las políticas de fila o por los permisos de
+    // columna (por ejemplo, intentar cambiarse el rol).
     if (e.code == '42501' || e.message.contains('row-level security')) {
       return ErrorDeDatos(
         TipoDeError.sinPermiso,
@@ -27,6 +30,26 @@ ErrorDeDatos traducirError(Object e, String mensajeGeneral) {
         causa: e,
       );
     }
+
+    // Valor repetido en una columna única.
+    if (e.code == '23505') {
+      return ErrorDeDatos(
+        TipoDeError.reglaDeNegocio,
+        _mensajeDeDuplicado(e.message),
+        causa: e,
+      );
+    }
+
+    // Restricción CHECK de la base.
+    if (e.code == '23514' &&
+        e.message.contains('perfiles_correo_institucional')) {
+      return ErrorDeDatos(
+        TipoDeError.reglaDeNegocio,
+        'Solo se aceptan correos institucionales de la UIS.',
+        causa: e,
+      );
+    }
+
     return ErrorDeDatos(TipoDeError.reglaDeNegocio, e.message, causa: e);
   }
 
@@ -35,4 +58,17 @@ ErrorDeDatos traducirError(Object e, String mensajeGeneral) {
     '$mensajeGeneral. Revisa tu conexión a internet e inténtalo de nuevo.',
     causa: e,
   );
+}
+
+String _mensajeDeDuplicado(String detalle) {
+  if (detalle.contains('documento')) {
+    return 'Ya existe una cuenta registrada con ese número de documento.';
+  }
+  if (detalle.contains('correo')) {
+    return 'Ese correo ya tiene una cuenta en UFIT.';
+  }
+  if (detalle.contains('perfiles_pkey')) {
+    return 'Tu cuenta ya estaba registrada.';
+  }
+  return 'Ese dato ya está registrado.';
 }
