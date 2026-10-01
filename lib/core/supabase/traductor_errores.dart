@@ -50,6 +50,15 @@ ErrorDeDatos traducirError(Object e, String mensajeGeneral) {
       );
     }
 
+    // Una medida fuera del rango que acepta la base (RF8).
+    if (e.code == '23514' && e.message.contains('medidas_antropometricas')) {
+      return ErrorDeDatos(
+        TipoDeError.reglaDeNegocio,
+        'Alguna de las medidas está fuera del rango permitido. Revísalas.',
+        causa: e,
+      );
+    }
+
     return ErrorDeDatos(TipoDeError.reglaDeNegocio, e.message, causa: e);
   }
 

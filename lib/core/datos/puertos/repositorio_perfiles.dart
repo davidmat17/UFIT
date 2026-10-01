@@ -1,3 +1,4 @@
+import '../../modelos/medicion.dart';
 import '../../modelos/perfil.dart';
 import '../../modelos/sesion.dart';
 
@@ -42,4 +43,26 @@ abstract class RepositorioPerfiles {
     required String apellido,
     String? telefono,
   });
+
+  // --- RF8: medidas antropométricas, con historial ---
+
+  /// Las mediciones de quien tiene la sesión abierta, de la más reciente
+  /// a la más antigua. Lista vacía si todavía no registró ninguna.
+  Future<List<MedicionAntropometrica>> misMediciones();
+
+  /// Registra una medición nueva con la fecha de hoy y la devuelve. No
+  /// reemplaza las anteriores. Lanza [ErrorDeDatos] si algún valor está
+  /// fuera de rango.
+  Future<MedicionAntropometrica> registrarMedicion({
+    required double pesoKg,
+    required double estaturaCm,
+    double? cinturaCm,
+    double? caderaCm,
+    double? pechoCm,
+    double? brazoCm,
+    double? musloCm,
+  });
+
+  /// Borra una medición propia, por ejemplo si se registró con un error.
+  Future<void> borrarMedicion(int id);
 }

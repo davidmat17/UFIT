@@ -2,12 +2,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/datos/errores.dart';
 import '../../../core/datos/puertos/repositorio_perfiles.dart';
+import '../../../core/modelos/medicion.dart';
 import '../../../core/modelos/perfil.dart';
 import '../../../core/modelos/sesion.dart';
 import '../../../core/supabase/supabase_config.dart';
 import '../../../core/supabase/traductor_errores.dart';
 
-/// Adaptador del puerto de cuenta contra Supabase (RF1, RF10).
+/// Adaptador del puerto de cuenta contra Supabase (RF1, RF8, RF10).
 ///
 /// El ingreso usa el proveedor Azure de Supabase Auth, que es la cuenta
 /// institucional de Microsoft 365 de la UIS.
@@ -178,6 +179,99 @@ class RepositorioPerfilesSupabase implements RepositorioPerfiles {
       return _desdeFila(fila);
     } catch (e) {
       throw traducirError(e, 'No se pudieron guardar tus datos');
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // RF8: medidas antropométricas
+  // ---------------------------------------------------------------
+
+  static const String _tablaMedidas = 'medidas_antropometricas';
+
+  MedicionAntropometrica _medicionDesdeFila(Map<String, dynamic> f) =>
+      MedicionAntropometrica(
+        id: (f['id'] as num).toInt(),
+        registradaEn: DateTime.parse(f['registrada_en'] as String).toLocal(),
+        // PostgreSQL entrega numeric como número JSON: puede llegar como
+        // int (70) o como double (70.5).
+        pesoKg: (f['peso_kg'] as num).toDouble(),
+        estaturaCm: (f['estatura_cm'] as num).toDouble(),
+        cinturaCm: (f['circ_cintura_cm'] as num?)?.toDouble(),
+        caderaCm: (f['circ_cadera_cm'] as num?)?.toDouble(),
+        pechoCm: (f['circ_pecho_cm'] as num?)?.toDouble(),
+        brazoCm: (f['circ_brazo_cm'] as num?)?.toDouble(),
+        musloCm: (f['circ_muslo_cm'] as num?)?.toDouble(),
+      );
+
+  String _idSesion(String accion) {
+    final User? usuario = _bd.auth.currentUser;
+    if (usuario == null) {
+      throw ErrorDeDatos(
+        TipoDeError.sinPermiso,
+        'Debes iniciar sesión para $accion.',
+      );
+    }
+    return usuario.id;
+  }
+
+  @override
+  Future<List<MedicionAntropometrica>> misMediciones() async {
+    final String id = _idSesion('ver tus medidas');
+    try {
+      final List<Map<String, dynamic>> filas = await _bd
+          .from(_tablaMedidas)
+          .select()
+          .eq('perfil_id', id)
+          .order('registrada_en', ascending: false);
+
+      return filas.map(_medicionDesdeFila).toList();
+    } catch (e) {
+      throw traducirError(e, 'No se pudieron cargar tus medidas');
+    }
+  }
+
+  @override
+  Future<MedicionAntropometrica> registrarMedicion({
+    required double pesoKg,
+    required double estaturaCm,
+    double? cinturaCm,
+    double? caderaCm,
+    double? pechoCm,
+    double? brazoCm,
+    double? musloCm,
+  }) async {
+    final String id = _idSesion('registrar tus medidas');
+    try {
+      // Sin id ni fecha: los pone la base.
+      final Map<String, dynamic> fila = await _bd
+          .from(_tablaMedidas)
+          .insert(<String, dynamic>{
+            'perfil_id': id,
+            'peso_kg': pesoKg,
+            'estatura_cm': estaturaCm,
+            'circ_cintura_cm': cinturaCm,
+            'circ_cadera_cm': caderaCm,
+            'circ_pecho_cm': pechoCm,
+            'circ_brazo_cm': brazoCm,
+            'circ_muslo_cm': musloCm,
+          })
+          .select()
+          .single();
+
+      return _medicionDesdeFila(fila);
+    } catch (e) {
+      throw traducirError(e, 'No se pudo guardar la medición');
+    }
+  }
+
+  @override
+  Future<void> borrarMedicion(int id) async {
+    _idSesion('borrar una medición');
+    try {
+      // La política de fila ya impide borrar mediciones ajenas.
+      await _bd.from(_tablaMedidas).delete().eq('id', id);
+    } catch (e) {
+      throw traducirError(e, 'No se pudo borrar la medición');
     }
   }
 

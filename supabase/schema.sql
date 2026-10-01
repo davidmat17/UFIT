@@ -204,21 +204,26 @@ comment on column public.rutina_ejercicios.dias is
 
 -- ---------------------------------------------------------------------
 -- 7. Medidas antropométricas  (RF8)
---    Decisión del equipo: un registro por persona que se actualiza, sin
---    historial. La app muestra la foto actual, no la evolución.
+--    Decisión del equipo (1 oct 2026): con historial. Cada medición es
+--    una fila con su fecha; la app muestra la última y la evolución.
+--    Una medición no se edita: se registra otra o se borra.
 -- ---------------------------------------------------------------------
 
 create table public.medidas_antropometricas (
-  perfil_id         uuid primary key references public.perfiles (id) on delete cascade,
-  peso_kg           numeric(5,2) check (peso_kg > 0 and peso_kg < 400),
-  estatura_cm       numeric(5,2) check (estatura_cm > 0 and estatura_cm < 260),
+  id                bigint generated always as identity primary key,
+  perfil_id         uuid not null references public.perfiles (id) on delete cascade,
+  peso_kg           numeric(5,2) not null check (peso_kg > 0 and peso_kg < 400),
+  estatura_cm       numeric(5,2) not null check (estatura_cm > 0 and estatura_cm < 260),
   circ_cintura_cm   numeric(5,2) check (circ_cintura_cm > 0),
   circ_cadera_cm    numeric(5,2) check (circ_cadera_cm > 0),
   circ_pecho_cm     numeric(5,2) check (circ_pecho_cm > 0),
   circ_brazo_cm     numeric(5,2) check (circ_brazo_cm > 0),
   circ_muslo_cm     numeric(5,2) check (circ_muslo_cm > 0),
-  actualizado_en    timestamptz not null default now()
+  registrada_en     timestamptz not null default now()
 );
+
+create index medidas_por_perfil
+  on public.medidas_antropometricas (perfil_id, registrada_en desc);
 
 
 -- ---------------------------------------------------------------------
@@ -534,8 +539,19 @@ create policy rutina_ejercicios_propios on public.rutina_ejercicios
     exists (select 1 from public.rutinas r where r.id = rutina_id and r.perfil_id = auth.uid())
   );
 
-create policy medidas_propias on public.medidas_antropometricas
-  for all using (perfil_id = auth.uid()) with check (perfil_id = auth.uid());
+-- Medidas: cada quien ve, registra y borra solo las suyas. Sin
+-- política de edición, y la app no escribe el id ni la fecha.
+create policy medidas_ver_propias on public.medidas_antropometricas
+  for select using (perfil_id = auth.uid());
+create policy medidas_crear_propias on public.medidas_antropometricas
+  for insert with check (perfil_id = auth.uid());
+create policy medidas_borrar_propias on public.medidas_antropometricas
+  for delete using (perfil_id = auth.uid());
+
+revoke insert, update on public.medidas_antropometricas from anon, authenticated;
+grant insert (perfil_id, peso_kg, estatura_cm, circ_cintura_cm, circ_cadera_cm,
+              circ_pecho_cm, circ_brazo_cm, circ_muslo_cm)
+  on public.medidas_antropometricas to authenticated;
 
 
 -- ---------------------------------------------------------------------

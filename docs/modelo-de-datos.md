@@ -20,7 +20,7 @@ Las cinco que definen la forma del modelo, con lo que implican.
 
 **El QR se genera por reserva y vence con la franja.** Cada reserva nace con un `codigo_qr` único. La función `registrar_asistencia()` valida que el código exista, que la reserva no esté cancelada, que la franja esté ocurriendo y que el ingreso no se haya registrado antes.
 
-**Las medidas antropométricas son un registro que se actualiza, sin historial.** El RF8 pide registro y gestión, no evolución. Consecuencia aceptada: la app muestra la foto actual, no el progreso en el tiempo.
+**Las medidas antropométricas se guardan con historial.** Cada medición es una fila con su fecha; la app muestra la última y la evolución del peso. Una medición no se edita: se registra otra o se borra la equivocada. Cambió el 1 de octubre de 2026 (migración 002); antes era un solo registro que se sobrescribía.
 
 ---
 
@@ -29,7 +29,7 @@ Las cinco que definen la forma del modelo, con lo que implican.
 ```mermaid
 erDiagram
     PERFILES ||--o{ RESERVAS : hace
-    PERFILES ||--o| MEDIDAS : tiene
+    PERFILES ||--o{ MEDIDAS : registra
     PERFILES ||--o{ RUTINAS : arma
     PERFILES ||--o{ ASIGNACIONES : cubre
     PERFILES ||--o{ NORMATIVA : publica
@@ -123,11 +123,12 @@ erDiagram
         smallint repeticiones
     }
     MEDIDAS {
-        uuid perfil_id PK
+        bigint id PK
+        uuid perfil_id FK
         numeric peso_kg
         numeric estatura_cm
         numeric circ_cintura_cm
-        timestamptz actualizado_en
+        timestamptz registrada_en
     }
     NORMATIVA {
         bigint id PK
@@ -181,7 +182,7 @@ Una fila por ingreso efectivo, atada a una reserva. La diferencia entre reservas
 Máximo 3 rutinas por usuario, forzado por un disparador en la base. Cada línea de la rutina tiene ejercicio, máquina, días, series y repeticiones. Los días son un arreglo de números: `{1,3,5}` es lunes, miércoles y viernes.
 
 ### `medidas_antropometricas` — perfil físico (RF8)
-Una fila por persona, con el `perfil_id` como llave primaria. Actualizar es sobrescribir.
+Una fila por medición, con su propio `id` y la fecha `registrada_en`, que pone la base. Peso y estatura son obligatorios; las circunferencias, opcionales. Cada quien ve, registra y borra solo las suyas; no hay edición.
 
 ### `normativa` — reglamento (RF6, RF13)
 Las versiones se acumulan, pero solo una puede estar `vigente` a la vez, garantizado por un índice único parcial. Es la única tabla que se puede leer sin iniciar sesión, porque el RF6 dice que la normativa es accesible desde la barra de ayuda.
