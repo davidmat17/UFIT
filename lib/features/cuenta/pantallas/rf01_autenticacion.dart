@@ -7,6 +7,7 @@ import '../../../core/datos/puertos/repositorio_perfiles.dart';
 import '../../../core/datos/repositorios.dart';
 import '../../../core/modelos/perfil.dart';
 import '../../../core/modelos/sesion.dart';
+import '../../../core/rutas.dart';
 import '../reglas_cuenta.dart';
 
 /// RF1 - Registro e inicio de sesión de usuarios
@@ -425,11 +426,19 @@ class _PantallaCompletarRegistroState
 // Cuenta abierta (entrada del RF1 en el menú)
 // ---------------------------------------------------------------------
 
-/// Muestra quién tiene la sesión abierta y permite cerrarla.
-class PantallaAutenticacion extends StatelessWidget {
+/// Muestra quién tiene la sesión abierta, lleva a actualizar los datos
+/// (RF10) y permite cerrar la sesión.
+class PantallaAutenticacion extends StatefulWidget {
   const PantallaAutenticacion({super.key});
 
-  Future<void> _cerrarSesion(BuildContext context) async {
+  @override
+  State<PantallaAutenticacion> createState() => _PantallaAutenticacionState();
+}
+
+class _PantallaAutenticacionState extends State<PantallaAutenticacion> {
+  late Future<Perfil?> _perfil = Repositorios.perfiles.perfilActual();
+
+  Future<void> _cerrarSesion() async {
     final NavigatorState navegador = Navigator.of(context);
     try {
       await Repositorios.perfiles.cerrarSesion();
@@ -437,10 +446,17 @@ class PantallaAutenticacion extends StatelessWidget {
       // pantallas que quedaron encima.
       navegador.popUntil((Route<dynamic> r) => r.isFirst);
     } on ErrorDeDatos catch (e) {
-      if (!context.mounted) return;
+      if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(e.mensaje)));
     }
+  }
+
+  /// Abre el RF10 y, al volver, recarga el perfil por si cambió.
+  Future<void> _actualizarDatos() async {
+    await Navigator.pushNamed(context, Rutas.rf10DatosPersonales);
+    if (!mounted) return;
+    setState(() => _perfil = Repositorios.perfiles.perfilActual());
   }
 
   @override
@@ -451,7 +467,7 @@ class PantallaAutenticacion extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Mi cuenta')),
       body: FutureBuilder<Perfil?>(
-        future: Repositorios.perfiles.perfilActual(),
+        future: _perfil,
         builder: (BuildContext context, AsyncSnapshot<Perfil?> snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());
@@ -486,15 +502,21 @@ class PantallaAutenticacion extends StatelessWidget {
                       ListTile(
                         leading: const Icon(Icons.verified_user_outlined),
                         title: const Text('Rol'),
-                        subtitle: Text(_nombreDelRol(perfil.rol)),
+                        subtitle: Text(nombreDelRol(perfil.rol)),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+                FilledButton.tonalIcon(
+                  onPressed: _actualizarDatos,
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Actualizar mis datos'),
+                ),
               ],
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: () => _cerrarSesion(context),
+                onPressed: _cerrarSesion,
                 icon: const Icon(Icons.logout),
                 label: const Text('Cerrar sesión'),
               ),
@@ -504,12 +526,6 @@ class PantallaAutenticacion extends StatelessWidget {
       ),
     );
   }
-
-  static String _nombreDelRol(RolUsuario rol) => switch (rol) {
-        RolUsuario.usuario => 'Usuario',
-        RolUsuario.instructor => 'Instructor',
-        RolUsuario.administrador => 'Administrador',
-      };
 }
 
 // ---------------------------------------------------------------------

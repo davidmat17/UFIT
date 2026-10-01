@@ -2,6 +2,8 @@
 /// base de datos. Por eso se pueden probar solas.
 library;
 
+import '../../core/modelos/perfil.dart';
+
 /// Dominios de correo aceptados. La base de datos aplica la misma regla
 /// (restricción perfiles_correo_institucional en schema.sql): esta copia
 /// solo sirve para avisar antes y con un mensaje claro.
@@ -65,3 +67,10 @@ String? validarTelefono(String? valor) {
 
 String? validarObligatorio(String? valor, String campo) =>
     (valor ?? '').trim().isEmpty ? 'Escribe tu $campo.' : null;
+
+/// Nombre del rol para mostrarlo en pantalla.
+String nombreDelRol(RolUsuario rol) => switch (rol) {
+      RolUsuario.usuario => 'Usuario',
+      RolUsuario.instructor => 'Instructor',
+      RolUsuario.administrador => 'Administrador',
+    };
