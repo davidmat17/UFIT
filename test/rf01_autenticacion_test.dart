@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ufit/core/datos/errores.dart';
 import 'package:ufit/core/datos/puertos/repositorio_perfiles.dart';
 import 'package:ufit/core/datos/repositorios.dart';
+import 'package:ufit/core/modelos/medicion.dart';
 import 'package:ufit/core/modelos/perfil.dart';
 import 'package:ufit/core/modelos/sesion.dart';
 import 'package:ufit/features/cuenta/pantallas/rf01_autenticacion.dart';
@@ -78,6 +79,26 @@ class _CuentaFalsa implements RepositorioPerfiles {
     String? telefono,
   }) async =>
       throw UnimplementedError();
+
+  // El RF8 se prueba en rf08_antropometria_test.dart.
+  @override
+  Future<List<MedicionAntropometrica>> misMediciones() async =>
+      throw UnimplementedError();
+
+  @override
+  Future<MedicionAntropometrica> registrarMedicion({
+    required double pesoKg,
+    required double estaturaCm,
+    double? cinturaCm,
+    double? caderaCm,
+    double? pechoCm,
+    double? brazoCm,
+    double? musloCm,
+  }) async =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> borrarMedicion(int id) async => throw UnimplementedError();
 }
 
 const SesionActiva _sesionUis = SesionActiva(
