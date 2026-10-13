@@ -38,6 +38,9 @@ dependencies:
   # Guarda en el celular las fotos ya descargadas (RF5): la segunda vez
   # salen al instante y también se ven sin conexión.
   cached_network_image: ^3.4.1
+  # Guarda en el celular la última normativa descargada (RF6, CU06
+  # flujo 2a): sin internet se sigue pudiendo consultar.
+  shared_preferences: ^2.3.2
   flutter_dotenv: ^6.0.1
 
 dev_dependencies:

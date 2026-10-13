@@ -23,6 +23,11 @@ class PantallaInicio extends StatelessWidget {
         title: const Text('UFIT'),
         actions: <Widget>[
           IconButton(
+            tooltip: 'Normativa del gimnasio',
+            icon: const Icon(Icons.gavel_outlined),
+            onPressed: () => Navigator.pushNamed(context, Rutas.rf06Normativa),
+          ),
+          IconButton(
             tooltip: 'Mi cuenta',
             icon: const Icon(Icons.account_circle_outlined),
             onPressed: () =>

@@ -8,6 +8,7 @@ import 'package:ufit/core/datos/repositorios.dart';
 import 'package:ufit/core/modelos/medicion.dart';
 import 'package:ufit/core/modelos/perfil.dart';
 import 'package:ufit/core/modelos/sesion.dart';
+import 'package:ufit/core/rutas.dart';
 import 'package:ufit/features/cuenta/pantallas/rf01_autenticacion.dart';
 import 'package:ufit/features/cuenta/reglas_cuenta.dart';
 
@@ -168,6 +169,27 @@ void main() {
 
       expect(find.text('Ingresar con correo institucional'), findsOneWidget);
       expect(find.text('INICIO DE LA APP'), findsNothing);
+    });
+
+    testWidgets('sin sesión deja abrir la normativa desde la barra de ayuda',
+        (WidgetTester tester) async {
+      Repositorios.perfiles = _CuentaFalsa();
+
+      await tester.pumpWidget(MaterialApp(
+        home: CompuertaDeSesion(
+          inicio: (_) => const Scaffold(body: Text('INICIO DE LA APP')),
+        ),
+        routes: <String, WidgetBuilder>{
+          Rutas.rf06Normativa: (_) =>
+              const Scaffold(body: Text('PANTALLA DE NORMATIVA')),
+        },
+      ));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Normativa'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('PANTALLA DE NORMATIVA'), findsOneWidget);
     });
 
     testWidgets('con sesión y perfil entra directo a la app',

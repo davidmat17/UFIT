@@ -4,6 +4,7 @@ import 'package:ufit/core/datos/errores.dart';
 import 'package:ufit/core/datos/puertos/repositorio_gimnasio.dart';
 import 'package:ufit/core/datos/repositorios.dart';
 import 'package:ufit/core/modelos/maquina.dart';
+import 'package:ufit/core/modelos/normativa.dart';
 import 'package:ufit/core/modelos/zona.dart';
 import 'package:ufit/desarrollo/pantalla_diagnostico.dart';
 import 'package:ufit/desarrollo/pantalla_inicio.dart';
@@ -35,7 +36,7 @@ class _GimnasioFalso implements RepositorioGimnasio {
   Future<List<Maquina>> maquinas({int? zonaId}) async => const <Maquina>[];
 
   @override
-  Future<String?> normativaVigente() async => null;
+  Future<Normativa?> normativaVigente() async => null;
 }
 
 Widget _envolver(Widget pantalla) => MaterialApp(home: pantalla);
