@@ -201,6 +201,20 @@ class _PantallaIngresoState extends State<_PantallaIngreso> {
     final String? mensaje = _error ?? widget.aviso;
 
     return Scaffold(
+      // Barra de ayuda: lo que se puede consultar sin iniciar sesión
+      // (RF6, CU06). Se navega por nombre de ruta para no importar el
+      // módulo de gimnasio desde el de cuenta.
+      appBar: AppBar(
+        actions: <Widget>[
+          TextButton.icon(
+            onPressed: () =>
+                Navigator.pushNamed(context, Rutas.rf06Normativa),
+            icon: const Icon(Icons.gavel_outlined),
+            label: const Text('Normativa'),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: ListView(

@@ -5,6 +5,7 @@ import 'package:ufit/core/datos/puertos/repositorio_gimnasio.dart';
 import 'package:ufit/core/datos/repositorios.dart';
 import 'package:ufit/core/modelos/ejercicio.dart';
 import 'package:ufit/core/modelos/maquina.dart';
+import 'package:ufit/core/modelos/normativa.dart';
 import 'package:ufit/core/modelos/zona.dart';
 import 'package:ufit/features/gimnasio/pantallas/rf05_catalogo.dart';
 import 'package:ufit/features/gimnasio/reglas_catalogo.dart';
@@ -112,7 +113,7 @@ class _GimnasioFalso implements RepositorioGimnasio {
   }
 
   @override
-  Future<String?> normativaVigente() async => null;
+  Future<Normativa?> normativaVigente() async => null;
 }
 
 Future<void> _abrir(WidgetTester tester, _GimnasioFalso repo) async {

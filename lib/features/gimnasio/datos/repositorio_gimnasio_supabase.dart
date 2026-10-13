@@ -1,8 +1,13 @@
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/datos/errores.dart';
 import '../../../core/datos/puertos/repositorio_gimnasio.dart';
 import '../../../core/modelos/ejercicio.dart';
 import '../../../core/modelos/maquina.dart';
+import '../../../core/modelos/normativa.dart';
 import '../../../core/modelos/zona.dart';
 import '../../../core/supabase/supabase_config.dart';
 import '../../../core/supabase/traductor_errores.dart';
@@ -87,18 +92,76 @@ class RepositorioGimnasioSupabase implements RepositorioGimnasio {
     );
   }
 
+  /// Clave con la que se guarda en el teléfono la última normativa
+  /// descargada (CU06, flujo 2a).
+  static const String _claveCopiaNormativa = 'rf06_normativa_vigente';
+
   @override
-  Future<String?> normativaVigente() async {
+  Future<Normativa?> normativaVigente() async {
     try {
+      // La política normativa_lectura deja leer la versión vigente sin
+      // sesión iniciada, así que esta consulta funciona desde el ingreso.
       final Map<String, dynamic>? fila = await _bd
           .from('normativa')
-          .select('contenido')
+          .select('titulo, contenido, version, publicada_en')
           .eq('vigente', true)
           .maybeSingle();
 
-      return fila?['contenido'] as String?;
+      if (fila == null) return null;
+
+      final Normativa normativa = Normativa(
+        titulo: fila['titulo'] as String,
+        contenido: fila['contenido'] as String,
+        version: fila['version'] as int,
+        publicadaEn: DateTime.parse(fila['publicada_en'] as String).toLocal(),
+      );
+      await _guardarCopia(normativa);
+      return normativa;
     } catch (e) {
-      throw traducirError(e, 'No se pudo cargar la normativa del gimnasio');
+      final ErrorDeDatos error =
+          traducirError(e, 'No se pudo cargar la normativa del gimnasio');
+
+      // Sin internet se muestra la última versión descargada, si la hay.
+      if (error.tipo == TipoDeError.sinConexion) {
+        final Normativa? copia = await _leerCopia();
+        if (copia != null) return copia.comoCopiaLocal();
+      }
+      throw error;
+    }
+  }
+
+  /// Guarda la normativa en el teléfono. Si falla, no pasa nada: solo
+  /// se pierde la copia para cuando no haya conexión.
+  Future<void> _guardarCopia(Normativa n) async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _claveCopiaNormativa,
+        jsonEncode(<String, Object>{
+          'titulo': n.titulo,
+          'contenido': n.contenido,
+          'version': n.version,
+          'publicada_en': n.publicadaEn.toUtc().toIso8601String(),
+        }),
+      );
+    } catch (_) {}
+  }
+
+  Future<Normativa?> _leerCopia() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? texto = prefs.getString(_claveCopiaNormativa);
+      if (texto == null) return null;
+
+      final Map<String, dynamic> m = jsonDecode(texto) as Map<String, dynamic>;
+      return Normativa(
+        titulo: m['titulo'] as String,
+        contenido: m['contenido'] as String,
+        version: m['version'] as int,
+        publicadaEn: DateTime.parse(m['publicada_en'] as String).toLocal(),
+      );
+    } catch (_) {
+      return null;
     }
   }
 }
