@@ -1,3 +1,5 @@
+import 'ejercicio.dart';
+
 /// Estado de una máquina del gimnasio.
 enum EstadoMaquina { disponible, mantenimiento, retirada }
 
@@ -17,6 +19,7 @@ class Maquina {
     this.cantidad = 1,
     this.estado = EstadoMaquina.disponible,
     this.imagenUrl,
+    this.ejercicios = const <Ejercicio>[],
   });
 
   final int id;
@@ -26,6 +29,9 @@ class Maquina {
   final int cantidad;
   final EstadoMaquina estado;
   final String? imagenUrl;
+
+  /// Los ejercicios que se pueden hacer en esta máquina (RF5).
+  final List<Ejercicio> ejercicios;
 
   bool get estaDisponible => estado == EstadoMaquina.disponible;
 }

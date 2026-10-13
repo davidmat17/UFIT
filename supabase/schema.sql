@@ -557,7 +557,10 @@ grant insert (perfil_id, peso_kg, estatura_cm, circ_cintura_cm, circ_cadera_cm,
 -- ---------------------------------------------------------------------
 -- 12. Datos semilla
 --     Lo mínimo para que las pantallas tengan qué mostrar mientras se
---     programan. No son datos reales del gimnasio.
+--     programan. No son datos reales del gimnasio. Las fotos de las
+--     máquinas están en el bucket público "maquinas" del Storage
+--     (archivos en supabase/fotos-maquinas/, créditos en
+--     docs/creditos-imagenes.md).
 -- ---------------------------------------------------------------------
 
 insert into public.zonas (nombre, descripcion) values
@@ -565,28 +568,160 @@ insert into public.zonas (nombre, descripcion) values
   ('Fuerza',         'Peso libre, barras, mancuernas y bancos.'),
   ('Musculación',    'Máquinas guiadas por grupo muscular.');
 
-insert into public.maquinas (zona_id, nombre, descripcion, cantidad) values
-  (1, 'Trotadora',            'Banda para caminar y correr con inclinación regulable.', 8),
-  (1, 'Elíptica',             'Trabajo cardiovascular de bajo impacto.',                 6),
-  (1, 'Bicicleta estática',   'Pedaleo con resistencia ajustable.',                      6),
-  (2, 'Banco plano',          'Banco para press de pecho con barra.',                    4),
-  (2, 'Rack de sentadilla',   'Soporte para sentadilla con barra olímpica.',             2),
-  (2, 'Mancuernas',           'Juego de mancuernas de 2 a 40 kg.',                       1),
-  (3, 'Prensa de piernas',    'Máquina guiada para cuádriceps y glúteos.',               2),
-  (3, 'Jalón al pecho',       'Polea alta para dorsales.',                               2),
-  (3, 'Extensión de cuádriceps', 'Máquina guiada de aislamiento.',                       2);
+insert into public.maquinas (zona_id, nombre, descripcion, cantidad, imagen_url) values
+  (1, 'Trotadora', 'Banda para caminar y correr con inclinación regulable.', 8,
+   'https://ovhaqvhomiazygxzhwji.supabase.co/storage/v1/object/public/maquinas/trotadora.jpg'),
+  (1, 'Elíptica', 'Trabajo cardiovascular de bajo impacto.', 6,
+   'https://ovhaqvhomiazygxzhwji.supabase.co/storage/v1/object/public/maquinas/eliptica.jpg'),
+  (1, 'Bicicleta estática', 'Pedaleo con resistencia ajustable.', 6,
+   'https://ovhaqvhomiazygxzhwji.supabase.co/storage/v1/object/public/maquinas/bicicleta-estatica.jpg'),
+  (2, 'Banco plano', 'Banco para press de pecho con barra.', 4,
+   'https://ovhaqvhomiazygxzhwji.supabase.co/storage/v1/object/public/maquinas/banco-plano.jpg'),
+  (2, 'Rack de sentadilla', 'Soporte para sentadilla con barra olímpica.', 2,
+   'https://ovhaqvhomiazygxzhwji.supabase.co/storage/v1/object/public/maquinas/rack-de-sentadilla.jpg'),
+  (2, 'Mancuernas', 'Juego de mancuernas de 2 a 40 kg.', 1,
+   'https://ovhaqvhomiazygxzhwji.supabase.co/storage/v1/object/public/maquinas/mancuernas.jpg'),
+  (3, 'Prensa de piernas', 'Máquina guiada para cuádriceps y glúteos.', 2,
+   'https://ovhaqvhomiazygxzhwji.supabase.co/storage/v1/object/public/maquinas/prensa-de-piernas.jpg'),
+  (3, 'Jalón al pecho', 'Polea alta para dorsales.', 2,
+   'https://ovhaqvhomiazygxzhwji.supabase.co/storage/v1/object/public/maquinas/jalon-al-pecho.jpg'),
+  (3, 'Extensión de cuádriceps', 'Máquina guiada de aislamiento.', 2,
+   'https://ovhaqvhomiazygxzhwji.supabase.co/storage/v1/object/public/maquinas/extension-de-cuadriceps.jpg');
 
-insert into public.ejercicios (nombre, grupo_muscular, descripcion) values
-  ('Caminata en pendiente', 'Cardiovascular', 'Caminar en banda con inclinación entre 5 % y 10 %.'),
-  ('Trote continuo',        'Cardiovascular', 'Carrera a ritmo constante.'),
-  ('Press de banca',        'Pecho',          'Empuje de barra desde el pecho, acostado en banco plano.'),
-  ('Sentadilla con barra',  'Piernas',        'Flexión de rodillas y cadera con barra sobre los trapecios.'),
-  ('Prensa de piernas',     'Piernas',        'Empuje de plataforma con las piernas en máquina guiada.'),
-  ('Jalón al pecho',        'Espalda',        'Tracción de barra hacia el pecho en polea alta.'),
-  ('Curl de bíceps',        'Brazos',         'Flexión de codo con mancuernas.');
+insert into public.ejercicios (nombre, grupo_muscular, descripcion, instrucciones) values
+  ('Caminata en pendiente', 'Cardiovascular',
+   'Caminar en banda con inclinación entre 5 % y 10 %.',
+   'Sube a la trotadora y empieza a caminar a velocidad baja. Sube la inclinación de forma gradual hasta un valor entre 5 % y 10 %. Mantén el tronco erguido y no te sostengas de las barras. Al terminar, baja la inclinación y la velocidad antes de detener la banda.'),
+  ('Trote continuo', 'Cardiovascular',
+   'Carrera a ritmo constante.',
+   'Empieza caminando unos minutos para calentar. Sube la velocidad hasta un ritmo que puedas sostener mientras hablas con frases cortas. Apoya primero la parte media del pie y mantén los brazos relajados. Al terminar, baja la velocidad poco a poco antes de detener la banda.'),
+  ('Press de banca', 'Pecho',
+   'Empuje de barra desde el pecho, acostado en banco plano.',
+   'Acuéstate en el banco con los ojos bajo la barra y los pies apoyados en el piso. Toma la barra un poco más abierta que el ancho de los hombros. Bájala de forma controlada hasta rozar el pecho y empújala hacia arriba sin bloquear los codos. Con pesos altos, entrena siempre con un compañero que te asista.'),
+  ('Sentadilla con barra', 'Piernas',
+   'Flexión de rodillas y cadera con barra sobre los trapecios.',
+   'Ubica la barra en el rack a la altura de los hombros y apóyala sobre los trapecios. Separa los pies al ancho de los hombros. Baja llevando la cadera hacia atrás, con la espalda recta y las rodillas en la dirección de los pies, hasta que los muslos queden paralelos al piso. Sube empujando con los talones. Ajusta los seguros del rack a una altura que te permita soltar la barra si no puedes subir.'),
+  ('Prensa de piernas', 'Piernas',
+   'Empuje de plataforma con las piernas en máquina guiada.',
+   'Siéntate con la espalda apoyada en el respaldo y los pies en el centro de la plataforma, al ancho de la cadera. Quita los seguros y baja la plataforma doblando las rodillas hasta unos 90 grados. Empuja hasta casi estirar las piernas, sin bloquear las rodillas. Vuelve a poner los seguros al terminar.'),
+  ('Jalón al pecho', 'Espalda',
+   'Tracción de barra hacia el pecho en polea alta.',
+   'Ajusta el soporte de los muslos y siéntate. Toma la barra con las manos más abiertas que los hombros. Con el pecho al frente, lleva la barra hacia la parte alta del pecho juntando las escápulas. Sube la barra de forma controlada hasta estirar los brazos. No lleves la barra detrás de la nuca.'),
+  ('Curl de bíceps', 'Brazos',
+   'Flexión de codo con mancuernas.',
+   'De pie, con una mancuerna en cada mano y las palmas hacia el frente, deja los codos pegados al cuerpo. Sube las mancuernas doblando los codos, sin balancear el tronco. Baja de forma controlada hasta estirar los brazos.');
 
 insert into public.ejercicio_maquina (ejercicio_id, maquina_id) values
   (1, 1), (2, 1), (3, 4), (4, 5), (5, 7), (6, 8), (7, 6);
+
+-- Catálogo ampliado (migración 005): máquinas vistas en la foto del
+-- gimnasio de la UIS y ejercicios para las que no tenían ninguno.
+-- Se enlazan por nombre.
+
+-- Máquinas nuevas -------------------------------------------------
+
+insert into public.maquinas (zona_id, nombre, descripcion, cantidad)
+select z.id, v.nombre, v.descripcion, v.cantidad
+from (values
+  ('Cardiovascular', 'Bicicleta reclinada',
+   'Bicicleta con espaldar, para pedalear sentado con la espalda apoyada.', 2),
+  ('Fuerza', 'Máquina Smith',
+   'Barra guiada sobre rieles verticales con seguros en cada altura.', 2),
+  ('Fuerza', 'Banco inclinado',
+   'Banco con respaldo inclinado y soporte para barra olímpica.', 1),
+  ('Fuerza', 'Banco Scott',
+   'Banco con atril para apoyar los brazos en el curl de bíceps.', 1),
+  ('Musculación', 'Máquina de aperturas',
+   'Máquina guiada de pecho con brazos que se cierran al frente.', 1),
+  ('Musculación', 'Sentadilla hack',
+   'Máquina de carga con discos para sentadilla con la espalda apoyada.', 1)
+) as v (zona, nombre, descripcion, cantidad)
+join public.zonas z on z.nombre = v.zona
+on conflict (zona_id, nombre) do nothing;
+
+-- Ejercicios nuevos -----------------------------------------------
+
+insert into public.ejercicios (nombre, grupo_muscular, descripcion, instrucciones) values
+  ('Elíptica continua', 'Cardiovascular',
+   'Movimiento elíptico a ritmo constante, sin impacto en las rodillas.',
+   'Sube a la elíptica sujetándote de las barras fijas y apoya los pies completos en los pedales. Empieza con resistencia baja durante unos minutos para calentar. Sube la resistencia hasta un ritmo que puedas sostener mientras hablas con frases cortas. Mantén el tronco erguido y empuja y tira de las barras móviles para trabajar también los brazos.'),
+  ('Pedaleo por intervalos', 'Cardiovascular',
+   'Bloques cortos de pedaleo intenso alternados con pedaleo suave.',
+   'Ajusta el sillín para que la rodilla quede apenas doblada cuando el pedal está abajo. Pedalea cinco minutos con resistencia baja para calentar. Luego alterna 30 segundos de pedaleo rápido con resistencia alta y 90 segundos de pedaleo suave, entre seis y ocho veces. Termina con cinco minutos de pedaleo suave.'),
+  ('Pedaleo reclinado continuo', 'Cardiovascular',
+   'Pedaleo a ritmo constante con la espalda apoyada.',
+   'Ajusta el asiento para que la rodilla quede apenas doblada cuando el pedal está más lejos. Apoya la espalda en el espaldar y sujétate de las manijas laterales. Pedalea a un ritmo constante que puedas sostener mientras hablas con frases cortas. Es una buena opción si tienes molestias en la espalda baja.'),
+  ('Extensión de rodilla en máquina', 'Piernas',
+   'Aislamiento de cuádriceps estirando la rodilla contra el rodillo.',
+   'Ajusta el respaldo para que las rodillas queden alineadas con el eje de la máquina y el rodillo quede sobre los tobillos. Sujétate de las manijas laterales. Estira las piernas hasta casi bloquear las rodillas, sostén un segundo y baja de forma controlada. No uses impulso ni levantes la cadera del asiento.'),
+  ('Sentadilla en máquina Smith', 'Piernas',
+   'Sentadilla con barra guiada por rieles.',
+   'Ubica la barra a la altura de los hombros y apóyala sobre los trapecios. Pon los pies un poco adelante de la barra, al ancho de los hombros. Gira la barra para soltar los seguros y baja llevando la cadera hacia atrás hasta que los muslos queden paralelos al piso. Sube empujando con los talones y vuelve a girar la barra para trabarla al terminar.'),
+  ('Press inclinado con barra', 'Pecho',
+   'Empuje de barra en banco inclinado, enfocado en la parte alta del pecho.',
+   'Acuéstate en el banco inclinado con los ojos bajo la barra y los pies firmes en el piso. Toma la barra un poco más abierta que el ancho de los hombros. Bájala de forma controlada hasta la parte alta del pecho y empújala hacia arriba sin bloquear los codos. Con pesos altos, entrena siempre con un compañero que te asista.'),
+  ('Press inclinado con mancuernas', 'Pecho',
+   'Empuje de mancuernas en banco inclinado.',
+   'Siéntate en el banco inclinado con una mancuerna sobre cada muslo. Recuéstate llevando las mancuernas a la altura del pecho, con las palmas hacia el frente. Empújalas hacia arriba hasta casi juntarlas y bájalas de forma controlada hasta que los codos queden un poco por debajo del banco.'),
+  ('Curl en banco Scott', 'Brazos',
+   'Flexión de codo con los brazos apoyados en el atril.',
+   'Ajusta el asiento para que las axilas queden sobre el borde superior del atril. Toma la barra con las palmas hacia arriba, al ancho de los hombros. Sube la barra doblando los codos sin despegar los brazos del atril. Baja de forma controlada sin estirar del todo los codos para no forzar la articulación.'),
+  ('Aperturas en máquina', 'Pecho',
+   'Cierre de brazos al frente en máquina guiada.',
+   'Ajusta el asiento para que las manijas queden a la altura del pecho. Siéntate con la espalda apoyada y toma las manijas con los codos ligeramente doblados. Junta los brazos al frente apretando el pecho, sostén un segundo y vuelve de forma controlada hasta sentir un estiramiento suave, sin pasar la línea de los hombros.'),
+  ('Sentadilla hack', 'Piernas',
+   'Sentadilla en máquina con la espalda apoyada en el respaldo.',
+   'Apoya la espalda y los hombros en las almohadillas y pon los pies en el centro de la plataforma, al ancho de la cadera. Quita los seguros y baja doblando las rodillas hasta unos 90 grados, sin despegar la espalda. Sube empujando con toda la planta del pie, sin bloquear las rodillas. Vuelve a poner los seguros al terminar.')
+on conflict (nombre) do nothing;
+
+-- Enlaces ejercicio — máquina -------------------------------------
+
+insert into public.ejercicio_maquina (ejercicio_id, maquina_id)
+select e.id, m.id
+from (values
+  ('Elíptica continua',               'Elíptica'),
+  ('Pedaleo por intervalos',          'Bicicleta estática'),
+  ('Pedaleo por intervalos',          'Bicicleta reclinada'),
+  ('Pedaleo reclinado continuo',      'Bicicleta reclinada'),
+  ('Extensión de rodilla en máquina', 'Extensión de cuádriceps'),
+  ('Sentadilla en máquina Smith',     'Máquina Smith'),
+  ('Press inclinado con barra',       'Banco inclinado'),
+  ('Press inclinado con mancuernas',  'Banco inclinado'),
+  ('Press inclinado con mancuernas',  'Mancuernas'),
+  ('Curl en banco Scott',             'Banco Scott'),
+  ('Aperturas en máquina',            'Máquina de aperturas'),
+  ('Sentadilla hack',                 'Sentadilla hack')
+) as v (ejercicio, maquina)
+join public.ejercicios e on e.nombre = v.ejercicio
+join public.maquinas   m on m.nombre = v.maquina
+on conflict (ejercicio_id, maquina_id) do nothing;
+
+-- Fotos de referencia de las máquinas nuevas, en el Storage
+-- (créditos en docs/creditos-imagenes.md).
+
+update public.maquinas set imagen_url =
+  'https://ovhaqvhomiazygxzhwji.supabase.co/storage/v1/object/public/maquinas/maquina-smith.jpg'
+where nombre = 'Máquina Smith' and imagen_url is null;
+
+update public.maquinas set imagen_url =
+  'https://ovhaqvhomiazygxzhwji.supabase.co/storage/v1/object/public/maquinas/banco-inclinado.jpg'
+where nombre = 'Banco inclinado' and imagen_url is null;
+
+update public.maquinas set imagen_url =
+  'https://ovhaqvhomiazygxzhwji.supabase.co/storage/v1/object/public/maquinas/banco-scott.jpg'
+where nombre = 'Banco Scott' and imagen_url is null;
+
+update public.maquinas set imagen_url =
+  'https://ovhaqvhomiazygxzhwji.supabase.co/storage/v1/object/public/maquinas/maquina-de-aperturas.jpg'
+where nombre = 'Máquina de aperturas' and imagen_url is null;
+
+update public.maquinas set imagen_url =
+  'https://ovhaqvhomiazygxzhwji.supabase.co/storage/v1/object/public/maquinas/sentadilla-hack.jpg'
+where nombre = 'Sentadilla hack' and imagen_url is null;
+
+update public.maquinas set imagen_url =
+  'https://ovhaqvhomiazygxzhwji.supabase.co/storage/v1/object/public/maquinas/bicicleta-reclinada.jpg'
+where nombre = 'Bicicleta reclinada' and imagen_url is null;
 
 insert into public.normativa (titulo, contenido, version, vigente) values
   ('Normativa del gimnasio UFIT',
