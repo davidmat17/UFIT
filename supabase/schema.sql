@@ -114,14 +114,20 @@ create table public.franjas (
   estado       public.estado_franja not null default 'abierta',
   creado_en    timestamptz not null default now(),
   unique (fecha, hora_inicio),
-  check (hora_fin > hora_inicio)
+  check (hora_fin > hora_inicio),
+  -- El gimnasio abre de lunes a viernes (isodow: 1 = lunes … 7 = domingo),
+  -- de 6 a. m. a 8 p. m.
+  constraint franjas_solo_lunes_a_viernes
+    check (extract(isodow from fecha) <= 5),
+  constraint franjas_horario_de_servicio
+    check (hora_inicio >= '06:00' and hora_fin <= '20:00')
 );
 
 -- Necesaria para la llave foránea compuesta de reservas (ver abajo).
 alter table public.franjas add constraint franjas_id_fecha_unica unique (id, fecha);
 
 comment on table public.franjas is
-  'Franjas de una hora, aforo 75. Se generan por adelantado con generar_franjas(). El administrador puede cerrar una franja sin borrarla.';
+  'Franjas de una hora, aforo 75, de lunes a viernes de 6 a. m. a 8 p. m. Se generan por adelantado con generar_franjas(). El administrador puede cerrar una franja sin borrarla.';
 
 
 -- ---------------------------------------------------------------------
@@ -321,7 +327,7 @@ create or replace function public.generar_franjas(
   desde date,
   hasta date,
   hora_apertura time default '06:00',
-  hora_cierre   time default '21:00'
+  hora_cierre   time default '20:00'
 )
 returns integer
 language plpgsql
@@ -333,14 +339,18 @@ declare
 begin
   dia := desde;
   while dia <= hasta loop
-    hora := hora_apertura;
-    while hora < hora_cierre loop
-      insert into public.franjas (fecha, hora_inicio, hora_fin)
-      values (dia, hora, hora + interval '1 hour')
-      on conflict (fecha, hora_inicio) do nothing;
-      creadas := creadas + 1;
-      hora := hora + interval '1 hour';
-    end loop;
+    -- isodow: 1 = lunes … 7 = domingo. El gimnasio no abre el fin de
+    -- semana.
+    if extract(isodow from dia) <= 5 then
+      hora := hora_apertura;
+      while hora < hora_cierre loop
+        insert into public.franjas (fecha, hora_inicio, hora_fin)
+        values (dia, hora, hora + interval '1 hour')
+        on conflict (fecha, hora_inicio) do nothing;
+        creadas := creadas + 1;
+        hora := hora + interval '1 hour';
+      end loop;
+    end if;
     dia := dia + 1;
   end loop;
   return creadas;
@@ -363,6 +373,43 @@ $$;
 create trigger rutinas_maximo_tres
   before insert on public.rutinas
   for each row execute function public.limitar_rutinas();
+
+-- Máximo 3 reservas por persona por semana, de lunes a domingo (regla 8
+-- de la normativa). Cuentan todas menos las canceladas: una reserva a la
+-- que no se asistió también gastó su cupo de la semana. Cancelar sí lo
+-- devuelve.
+create or replace function public.limitar_reservas_semana()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  lunes constant date := date_trunc('week', new.fecha)::date;
+begin
+  if new.estado = 'cancelada' then
+    return new;
+  end if;
+
+  -- Mientras cuenta, bloquea las reservas de esta persona: así dos
+  -- reservas enviadas al mismo tiempo no pasan las dos.
+  perform pg_advisory_xact_lock(hashtext(new.perfil_id::text));
+
+  if (select count(*)
+        from public.reservas
+       where perfil_id = new.perfil_id
+         and estado <> 'cancelada'
+         and fecha between lunes and lunes + 6
+         and id is distinct from new.id) >= 3 then
+    raise exception 'Ya tienes 3 reservas esta semana. La normativa del gimnasio permite máximo 3 por semana.';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger reservas_maximo_tres_por_semana
+  before insert or update of estado, fecha on public.reservas
+  for each row execute function public.limitar_reservas_semana();
 
 -- Registra el ingreso a partir del QR (RF4). Devuelve la reserva o falla
 -- con un mensaje que la app muestra tal cual.
@@ -723,10 +770,23 @@ update public.maquinas set imagen_url =
   'https://ovhaqvhomiazygxzhwji.supabase.co/storage/v1/object/public/maquinas/bicicleta-reclinada.jpg'
 where nombre = 'Bicicleta reclinada' and imagen_url is null;
 
+-- La versión 1 era de prueba y queda en el historial; la 2 es la
+-- normativa real del gimnasio de la UIS (migración 007), una regla por
+-- línea.
 insert into public.normativa (titulo, contenido, version, vigente) values
   ('Normativa del gimnasio UFIT',
    'Uso obligatorio de toalla. Desinfectar la máquina después de usarla. Aforo máximo de 75 personas por franja horaria. Cada usuario puede reservar una franja de una hora al día. La reserva se pierde si no se registra el ingreso dentro de los primeros 15 minutos de la franja.',
-   1, true);
+   1, false),
+  ('Normativa del gimnasio',
+   $reglas$1. El uso de toalla es obligatorio.
+2. No se permite el ingreso de maletas.
+3. Prohibido el consumo de alimentos dentro del gimnasio.
+4. Portar ropa adecuada para entrenar.
+5. Dejar en el sitio correspondiente los elementos que utilice.
+6. Los equipos de trabajo aeróbico pueden usarse máximo por 30 min.
+7. Toda persona que haga mal uso de las máquinas e instalaciones quedará suspendida del servicio.
+8. Sólo se permite una reserva por día y máximo 3 veces por semana.$reglas$,
+   2, true);
 
 -- Franjas de las próximas cuatro semanas.
 select public.generar_franjas(public.hoy_local(), public.hoy_local() + 28);

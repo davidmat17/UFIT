@@ -166,7 +166,7 @@ Cada máquina pertenece a una zona. `cantidad` dice cuántas unidades hay; `esta
 Un ejercicio puede hacerse en varias máquinas y una máquina sirve para varios ejercicios. Esa relación muchos a muchos necesita su propia tabla: `ejercicio_maquina`.
 
 ### `franjas` — horario (RF2)
-Una fila por hora y día, con `cupo_total` en 75. Se crean con `generar_franjas(desde, hasta)`. Cerrar una franja es cambiar su `estado` a `cerrada`, nunca borrarla: si tiene reservas asociadas, borrarla dejaría huecos en el historial.
+Una fila por hora y día, de lunes a viernes de 6 a. m. a 8 p. m. (14 franjas diarias), con `cupo_total` en 75. Se crean con `generar_franjas(desde, hasta)`. Cerrar una franja es cambiar su `estado` a `cerrada`, nunca borrarla: si tiene reservas asociadas, borrarla dejaría huecos en el historial.
 
 ### `reservas` — el centro del sistema (RF2, RF3, RF4)
 Guarda quién, en qué franja, a qué zona, en qué estado y con qué código QR.
@@ -174,6 +174,8 @@ Guarda quién, en qué franja, a qué zona, en qué estado y con qué código QR
 La columna `fecha` está duplicada de `franjas` a propósito, y una llave foránea compuesta `(franja_id, fecha)` garantiza que nunca se desincronice. Está ahí porque hace posible la regla de una reserva por día sin consultar otra tabla.
 
 Cancelar no borra: cambia el `estado` a `cancelada` y llena `cancelada_en`.
+
+Cada persona puede tener máximo 3 reservas por semana (contada de lunes a domingo), como dice la regla 8 de la normativa. Lo controla un disparador (migración 008). Las canceladas no cuentan; una reserva a la que no se asistió sí, porque ocupó el cupo.
 
 ### `asistencias` — ingreso real (RF4)
 Una fila por ingreso efectivo, atada a una reserva. La diferencia entre reservas y asistencias es exactamente lo que el RF12 llama "asistencia efectiva frente a las reservas realizadas".
@@ -199,7 +201,9 @@ No están solo en el código de la app. Están en la base, así que se cumplen a
 | Regla | Cómo se hace cumplir |
 |---|---|
 | Una reserva viva por persona por día | Índice único parcial sobre `(perfil_id, fecha)`, ignorando las canceladas |
+| Máximo 3 reservas por persona por semana (regla 8 de la normativa) | Disparador `reservas_maximo_tres_por_semana`; cuentan todas menos las canceladas |
 | La fecha de la reserva es la de su franja | Llave foránea compuesta `(franja_id, fecha)` |
+| El gimnasio abre de lunes a viernes, de 6 a. m. a 8 p. m. | `generar_franjas()` solo crea franjas en ese horario, y las restricciones `franjas_solo_lunes_a_viernes` y `franjas_horario_de_servicio` rechazan cualquier franja por fuera |
 | Máximo 3 rutinas por usuario | Disparador `rutinas_maximo_tres` |
 | Los días de una rutina son del 1 al 7 | Restricción `check` sobre el arreglo |
 | Una sola normativa vigente | Índice único parcial sobre `vigente` |
