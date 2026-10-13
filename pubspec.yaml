@@ -35,6 +35,9 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   supabase_flutter: ^2.17.2
+  # Guarda en el celular las fotos ya descargadas (RF5): la segunda vez
+  # salen al instante y también se ven sin conexión.
+  cached_network_image: ^3.4.1
   flutter_dotenv: ^6.0.1
 
 dev_dependencies:

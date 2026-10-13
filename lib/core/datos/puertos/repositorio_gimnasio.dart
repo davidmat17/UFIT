@@ -5,7 +5,8 @@ import '../../modelos/zona.dart';
 abstract class RepositorioGimnasio {
   Future<List<Zona>> zonas();
 
-  /// El catálogo, opcionalmente filtrado por zona.
+  /// El catálogo, opcionalmente filtrado por zona. Cada máquina trae
+  /// sus ejercicios asociados (RF5).
   Future<List<Maquina>> maquinas({int? zonaId});
 
   /// El texto de la normativa vigente, o null si no hay ninguna publicada.
