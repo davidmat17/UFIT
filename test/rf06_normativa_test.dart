@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ufit/core/datos/errores.dart';
 import 'package:ufit/core/datos/puertos/repositorio_gimnasio.dart';
 import 'package:ufit/core/datos/repositorios.dart';
+import 'package:ufit/core/modelos/franja_con_instructor.dart';
 import 'package:ufit/core/modelos/maquina.dart';
 import 'package:ufit/core/modelos/normativa.dart';
 import 'package:ufit/core/modelos/zona.dart';
@@ -49,6 +50,13 @@ class _GimnasioFalso implements RepositorioGimnasio {
 
   @override
   Future<List<Maquina>> maquinas({int? zonaId}) async => const <Maquina>[];
+
+  @override
+  Future<List<FranjaConInstructor>> agendaInstructores({
+    required DateTime desde,
+    required DateTime hasta,
+  }) async =>
+      const <FranjaConInstructor>[];
 }
 
 Future<void> _abrir(WidgetTester tester, _GimnasioFalso repo) async {

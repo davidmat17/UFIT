@@ -35,11 +35,10 @@ erDiagram
     PERFILES ||--o{ NORMATIVA : publica
 
     FRANJAS ||--o{ RESERVAS : recibe
-    FRANJAS ||--o{ ASIGNACIONES : tiene
+    FRANJAS ||--o| ASIGNACIONES : tiene
 
     ZONAS ||--o{ MAQUINAS : agrupa
     ZONAS ||--o{ RESERVAS : destino
-    ZONAS ||--o{ ASIGNACIONES : ubica
 
     RESERVAS ||--o| ASISTENCIAS : cumple
 
@@ -58,6 +57,7 @@ erDiagram
         text correo UK
         text telefono
         rol_usuario rol
+        text especialidad
         boolean activo
     }
     FRANJAS {
@@ -140,8 +140,7 @@ erDiagram
     ASIGNACIONES {
         bigint id PK
         uuid instructor_id FK
-        bigint franja_id FK
-        smallint zona_id FK
+        bigint franja_id FK, UK
     }
 ```
 
@@ -155,6 +154,8 @@ erDiagram
 Extiende `auth.users`, la tabla de cuentas que administra Supabase. Comparte su `id`, así que hay exactamente un perfil por cuenta; el correo y la contraseña los guarda Supabase, no nosotros.
 
 Los tres roles viven aquí, en la columna `rol` (`usuario`, `instructor`, `administrador`). Van juntos porque comparten todos los campos y porque así las reservas, las rutinas y las medidas apuntan a una sola tabla. Un instructor también puede reservar.
+
+`especialidad` (migración 011, 14 de octubre de 2026) solo tiene sentido para los instructores: es lo que el RF7 muestra junto a su nombre. La escribe el administrador; el usuario no puede cambiarla.
 
 ### `zonas` — cardiovascular, fuerza, musculación
 Tres filas fijas. Es a lo que apunta la reserva y por lo que se agrupan las estadísticas del RF12.
@@ -192,7 +193,9 @@ Una fila por medición, con su propio `id` y la fecha `registrada_en`, que pone 
 Las versiones se acumulan, pero solo una puede estar `vigente` a la vez, garantizado por un índice único parcial. Es la única tabla que se puede leer sin iniciar sesión, porque el RF6 dice que la normativa es accesible desde la barra de ayuda.
 
 ### `asignaciones_instructor` — agenda (RF7, RF13)
-El administrador asigna un instructor a una franja y opcionalmente a una zona; el usuario consulta esa agenda.
+El administrador asigna un instructor a una franja; el usuario consulta esa agenda. El instructor trabaja por turnos (por ejemplo de 7 a 12 o de 2 a 6) y está a cargo de todo el gimnasio, así que la asignación no lleva zona: la migración 011 quitó la columna `zona_id`, que al principio era opcional.
+
+Desde la migración 011 cada franja tiene como mucho un instructor (HU16) y solo se puede asignar a alguien con rol `instructor` y cuenta activa. Como un usuario no puede leer el perfil de otra persona, el RF7 no consulta `perfiles`: llama a `agenda_instructores(desde, hasta)`, que devuelve las franjas del rango con nombre y especialidad del instructor (nunca su correo, documento ni teléfono), o nada si no tiene. Si el instructor se desactiva o deja de serlo, su franja aparece sin instructor.
 
 ---
 
@@ -213,6 +216,8 @@ No están solo en el código de la app. Están en la base, así que se cumplen a
 | Una cancelada tiene fecha de cancelación | Restricción `check` que amarra estado y fecha |
 | Nadie ve reservas, rutinas ni medidas de otro | Políticas de seguridad a nivel de fila (RLS) |
 | El QR solo sirve en su franja y una sola vez | Función `registrar_asistencia()` |
+| Máximo un instructor por franja (HU16) | Restricción `asignaciones_un_instructor_por_franja` sobre `franja_id` |
+| Solo se asigna a instructores activos | Disparador `asignaciones_solo_instructores` |
 
 Esas políticas de RLS importan más de lo que parece: la clave pública de Supabase viaja dentro de la app, así que cualquiera que la extraiga puede consultar la base directamente. Sin RLS, podría leer las medidas corporales de todos los usuarios.
 

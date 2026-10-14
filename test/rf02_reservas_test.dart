@@ -6,6 +6,7 @@ import 'package:ufit/core/datos/errores.dart';
 import 'package:ufit/core/datos/puertos/repositorio_gimnasio.dart';
 import 'package:ufit/core/datos/puertos/repositorio_reservas.dart';
 import 'package:ufit/core/datos/repositorios.dart';
+import 'package:ufit/core/modelos/franja_con_instructor.dart';
 import 'package:ufit/core/modelos/franja_disponible.dart';
 import 'package:ufit/core/modelos/maquina.dart';
 import 'package:ufit/core/modelos/normativa.dart';
@@ -298,6 +299,13 @@ class _GimnasioFalso implements RepositorioGimnasio {
 
   @override
   Future<Normativa?> normativaVigente() async => null;
+
+  @override
+  Future<List<FranjaConInstructor>> agendaInstructores({
+    required DateTime desde,
+    required DateTime hasta,
+  }) async =>
+      const <FranjaConInstructor>[];
 }
 
 // ---------------------------------------------------------------------
