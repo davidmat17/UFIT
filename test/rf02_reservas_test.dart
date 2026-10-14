@@ -8,6 +8,7 @@ import 'package:ufit/core/datos/puertos/repositorio_reservas.dart';
 import 'package:ufit/core/datos/repositorios.dart';
 import 'package:ufit/core/modelos/franja_disponible.dart';
 import 'package:ufit/core/modelos/maquina.dart';
+import 'package:ufit/core/modelos/normativa.dart';
 import 'package:ufit/core/modelos/reserva.dart';
 import 'package:ufit/core/modelos/resultado_reserva.dart';
 import 'package:ufit/core/modelos/zona.dart';
@@ -114,8 +115,8 @@ bool _dentro(DateTime fecha, DateTime? desde, DateTime? hasta) {
 
 /// Repositorio de reservas falso. Aplica las mismas reglas que la función
 /// reservar_cupos() de la base (supabase/schema.sql), en el mismo orden:
-/// inexistente, cerrada, pasada, otra reserva ese día / ya reservada, sin
-/// cupo y, si nada lo impide, creada.
+/// inexistente, cerrada, pasada, otra reserva ese día / ya reservada,
+/// máximo 3 por semana, sin cupo y, si nada lo impide, creada.
 class _ReservasFalsas implements RepositorioReservas {
   _ReservasFalsas({
     required List<FranjaDisponible> franjas,
@@ -231,6 +232,17 @@ class _ReservasFalsas implements RepositorioReservas {
       }
     }
 
+    // Máximo 3 por semana, de lunes a domingo; las canceladas no cuentan.
+    final DateTime lunes = lunesDeLaSemana(f.fecha);
+    final int enLaSemana = reservas
+        .where((Reserva r) =>
+            r.estado != EstadoReserva.cancelada &&
+            mismoDia(lunesDeLaSemana(r.fecha), lunes))
+        .length;
+    if (enLaSemana >= maximoReservasPorSemana) {
+      return sin(ResultadoReserva.limiteSemanal);
+    }
+
     if (f.cuposDisponibles <= 0) return sin(ResultadoReserva.sinCupo);
 
     final Reserva nueva = _reserva(
@@ -285,7 +297,7 @@ class _GimnasioFalso implements RepositorioGimnasio {
   Future<List<Maquina>> maquinas({int? zonaId}) async => const <Maquina>[];
 
   @override
-  Future<String?> normativaVigente() async => null;
+  Future<Normativa?> normativaVigente() async => null;
 }
 
 // ---------------------------------------------------------------------
@@ -901,6 +913,22 @@ void main() {
 
   // -------------------------------------------------------------------
   group('lo que responde la base', () {
+    test('el máximo de 3 por semana es un fallo con su propio mensaje', () {
+      final ResultadoReserva r = resultadoReservaDesdeTexto('limite_semanal');
+
+      expect(r, ResultadoReserva.limiteSemanal);
+      expect(r.fueExitoso, isFalse);
+      expect(r.mensaje, contains('máximo 3 por semana'));
+      expect(
+        etiquetaDeLinea(LineaDeResultado(
+          fecha: DateTime(2026, 10, 14),
+          horaInicio: '12:00:00',
+          resultado: r,
+        )),
+        'Ya tenías 3 reservas esa semana',
+      );
+    });
+
     test('lee una reserva nueva', () {
       final List<ResultadoPorFranja> r = resultadosDesdeRespuesta(
         jsonDecode(_respuestaUnaReserva),
@@ -1359,6 +1387,72 @@ void main() {
       await _tocar(tester, find.text('Ver mis reservas'));
 
       expect(find.text('Pantalla del historial'), findsOneWidget);
+    });
+
+    testWidgets('la repetición ofrece solo de lunes a viernes y máximo 3 días',
+        (WidgetTester tester) async {
+      await _abrir(tester, _ReservasFalsas(franjas: _franjasDePrueba()));
+
+      await _tocar(tester, find.text('12:00 – 13:00'));
+      await _tocar(tester, find.text('Repetir cada semana'));
+
+      // El fin de semana no abre el gimnasio.
+      expect(_enHoja(find.widgetWithText(FilterChip, 'sáb')), findsNothing);
+      expect(_enHoja(find.widgetWithText(FilterChip, 'dom')), findsNothing);
+      for (final String dia in <String>['lun', 'mar', 'mié', 'jue', 'vie']) {
+        expect(_enHoja(find.widgetWithText(FilterChip, dia)), findsOneWidget);
+      }
+
+      FilterChip chip(String dia) =>
+          tester.widget<FilterChip>(_enHoja(find.widgetWithText(FilterChip, dia)));
+
+      // Miércoles (el de la reserva) + lunes + viernes = 3: ya no caben más.
+      await _tocar(tester, _enHoja(find.text('lun')));
+      await _tocar(tester, _enHoja(find.text('vie')));
+
+      expect(chip('mar').onSelected, isNull);
+      expect(chip('jue').onSelected, isNull);
+      // Los marcados sí se pueden quitar (menos el día de la reserva).
+      expect(chip('lun').onSelected, isNotNull);
+
+      await _tocar(tester, _enHoja(find.text('lun')));
+      expect(chip('mar').onSelected, isNotNull);
+    });
+
+    testWidgets('reserva recurrente: la semana que ya tiene 3 no tumba las demás',
+        (WidgetTester tester) async {
+      // La semana del 12 de octubre ya tiene 3 reservas (lun, mar y jue).
+      final _ReservasFalsas repo = _ReservasFalsas(
+        franjas: _franjasDePrueba(),
+        reservas: <Reserva>[
+          _reserva(id: 101, franjaId: 1208, fecha: DateTime(2026, 10, 12)),
+          _reserva(id: 102, franjaId: 1308, fecha: DateTime(2026, 10, 13)),
+          _reserva(id: 103, franjaId: 1508, fecha: DateTime(2026, 10, 15)),
+        ],
+      );
+      await _abrir(tester, repo);
+
+      await _tocar(tester, find.text('12:00 – 13:00'));
+      await _tocar(tester, find.text('Fuerza'));
+      await _tocar(tester, find.text('Repetir cada semana'));
+      await _tocar(tester, find.widgetWithText(FilledButton, 'Reservar 4 fechas'));
+
+      // Se piden las 4 en una sola llamada. El 14 choca con el máximo de 3
+      // por semana y el 21 a las 12:00 está cerrada (ver _cerradas); el 7
+      // y el 28 sí quedan.
+      expect(repo.pedidos.single, <int>[712, 1412, 2112, 2812]);
+      expect(_enHoja(find.text('Se confirmaron 2 de 4 fechas.')), findsOneWidget);
+      expect(_enHoja(find.text('mié 14 oct · 12:00')), findsOneWidget);
+      expect(
+        _enHoja(find.text('Ya tenías 3 reservas esa semana')),
+        findsOneWidget,
+      );
+      expect(_enHoja(find.text('Franja cerrada')), findsOneWidget);
+      expect(repo.reservas, hasLength(3 + 2));
+      expect(
+        repo.reservas.skip(3).map((Reserva r) => r.franjaId),
+        <int>[712, 2812],
+      );
     });
 
     testWidgets('cancelar cierra la hoja sin reservar', (WidgetTester tester) async {

@@ -446,6 +446,13 @@ class _HojaDeReservaState extends State<_HojaDeReserva> {
     final TextTheme textos = Theme.of(context).textTheme;
     final ColorScheme esquema = Theme.of(context).colorScheme;
     final int diaBase = _franja.fecha.weekday;
+    // De lunes a viernes, que es cuando abre el gimnasio, y nunca más de
+    // 3 días: la normativa permite máximo 3 reservas por semana.
+    final List<int> diasPosibles = <int>[
+      ...diasDeServicio,
+      if (!diasDeServicio.contains(diaBase)) diaBase,
+    ];
+    final bool topeDeDias = _dias.length >= maximoReservasPorSemana;
 
     final String lista =
         fechas.take(_fechasVisibles).map(formatearDiaCorto).join(', ');
@@ -458,13 +465,16 @@ class _HojaDeReservaState extends State<_HojaDeReserva> {
         spacing: 8,
         runSpacing: 8,
         children: <Widget>[
-          for (int d = 1; d <= 7; d++)
+          for (final int d in diasPosibles)
             FilterChip(
               label: Text(nombreCortoDelDia(d)),
               tooltip: nombreLargoDelDia(d),
               selected: _dias.contains(d),
-              // El día de la reserva siempre se incluye.
-              onSelected: (enviando || d == diaBase)
+              // El día de la reserva siempre se incluye, y con 3 días
+              // marcados no se pueden agregar más.
+              onSelected: (enviando ||
+                      d == diaBase ||
+                      (topeDeDias && !_dias.contains(d)))
                   ? null
                   : (bool marcado) => setState(() {
                         if (marcado) {
@@ -478,7 +488,9 @@ class _HojaDeReservaState extends State<_HojaDeReserva> {
       ),
       const SizedBox(height: 4),
       Text(
-        'El día de tu reserva siempre se incluye.',
+        'El día de tu reserva siempre se incluye. Máximo '
+        '$maximoReservasPorSemana días: la normativa permite '
+        '$maximoReservasPorSemana reservas por semana.',
         style: textos.bodySmall?.copyWith(color: esquema.onSurfaceVariant),
       ),
       const SizedBox(height: 12),

@@ -280,6 +280,15 @@ List<FranjaDisponible> sugerirAlternativas(
 /// Máximo de semanas que se puede repetir una reserva.
 const int maximoDeSemanas = 8;
 
+/// Máximo de reservas por persona en una semana, de lunes a domingo
+/// (regla 8 de la normativa). Lo hace cumplir la base; la app lo usa para
+/// no dejar marcar más días de los que se pueden reservar.
+const int maximoReservasPorSemana = 3;
+
+/// Los días en que abre el gimnasio: de lunes (1) a viernes (5). Son los
+/// únicos que se ofrecen para repetir una reserva.
+const List<int> diasDeServicio = <int>[1, 2, 3, 4, 5];
+
 /// Semanas que propone la pantalla al activar la repetición.
 const int semanasPorDefecto = 4;
 
@@ -402,6 +411,7 @@ String etiquetaDeLinea(LineaDeResultado linea) {
     ResultadoReserva.creada => 'Reservada',
     ResultadoReserva.yaReservada => 'Ya la tenías reservada',
     ResultadoReserva.otraReservaEseDia => 'Ya tenías otra reserva ese día',
+    ResultadoReserva.limiteSemanal => 'Ya tenías 3 reservas esa semana',
     ResultadoReserva.sinCupo => 'Sin cupos',
     ResultadoReserva.franjaCerrada => 'Franja cerrada',
     ResultadoReserva.franjaPasada => 'La franja ya terminó',

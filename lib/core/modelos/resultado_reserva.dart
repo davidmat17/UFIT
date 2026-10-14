@@ -8,6 +8,7 @@ enum ResultadoReserva {
   creada,
   yaReservada,
   otraReservaEseDia,
+  limiteSemanal,
   sinCupo,
   franjaCerrada,
   franjaPasada,
@@ -19,6 +20,7 @@ ResultadoReserva resultadoReservaDesdeTexto(String? valor) => switch (valor) {
       'creada' => ResultadoReserva.creada,
       'ya_reservada' => ResultadoReserva.yaReservada,
       'otra_reserva_ese_dia' => ResultadoReserva.otraReservaEseDia,
+      'limite_semanal' => ResultadoReserva.limiteSemanal,
       'sin_cupo' => ResultadoReserva.sinCupo,
       'franja_cerrada' => ResultadoReserva.franjaCerrada,
       'franja_pasada' => ResultadoReserva.franjaPasada,
@@ -40,6 +42,9 @@ extension TextoDeResultadoReserva on ResultadoReserva {
         ResultadoReserva.otraReservaEseDia =>
           'Ya tienes otra reserva ese día. Solo se permite una por día; '
               'cancélala si quieres cambiarla.',
+        ResultadoReserva.limiteSemanal =>
+          'Ya tienes 3 reservas esa semana. La normativa del gimnasio '
+              'permite máximo 3 por semana.',
         ResultadoReserva.sinCupo => 'Esta franja ya no tiene cupos.',
         ResultadoReserva.franjaCerrada => 'Esta franja está cerrada.',
         ResultadoReserva.franjaPasada => 'Esta franja ya terminó.',

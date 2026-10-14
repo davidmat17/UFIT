@@ -464,6 +464,8 @@ $$;
 --   ya_reservada          ya tenías esa franja; es la misma reserva.
 --                         Hace seguro reintentar si se cortó la red.
 --   otra_reserva_ese_dia  ya tienes otra franja ese día (máx. una)
+--   limite_semanal        ya tienes 3 reservas esa semana (regla 8 de
+--                         la normativa, de lunes a domingo)
 --   sin_cupo              la franja llegó al aforo
 --   franja_cerrada        el administrador la cerró
 --   franja_pasada         la franja ya terminó
@@ -495,6 +497,8 @@ declare
   v_previa    public.reservas;
   v_nueva     public.reservas;
   v_ocupados  integer;
+  v_lunes     date;
+  v_semana    integer;
 begin
   if v_perfil is null then
     raise exception 'Inicia sesión para reservar un cupo';
@@ -526,6 +530,11 @@ begin
   if array_length(v_ids, 1) > 60 then
     raise exception 'Se pueden reservar como máximo 60 franjas a la vez';
   end if;
+
+  -- El mismo bloqueo por persona que toma el disparador de las 3 reservas
+  -- por semana (limitar_reservas_semana): dos llamadas de la misma
+  -- persona al tiempo cuentan una después de la otra.
+  perform pg_advisory_xact_lock(hashtext(v_perfil::text));
 
   foreach v_id in array v_ids loop
     franja  := v_id;
@@ -561,20 +570,36 @@ begin
         end if;
 
       else
-        select count(*) into v_ocupados
+        -- Máximo 3 por semana, contadas como el disparador: todas menos
+        -- las canceladas, incluidas las que se acaban de crear en esta
+        -- misma llamada. Se responde por franja, sin abortar, para que en
+        -- una reserva recurrente las demás semanas sí queden reservadas.
+        v_lunes := date_trunc('week', v_franja.fecha)::date;
+
+        select count(*) into v_semana
           from public.reservas r
-         where r.franja_id = v_franja.id
-           and r.estado in ('confirmada', 'asistida');
+         where r.perfil_id = v_perfil
+           and r.estado <> 'cancelada'
+           and r.fecha between v_lunes and v_lunes + 6;
 
-        if v_ocupados >= v_franja.cupo_total then
-          resultado := 'sin_cupo';
+        if v_semana >= 3 then
+          resultado := 'limite_semanal';
         else
-          insert into public.reservas (perfil_id, franja_id, fecha, zona_id)
-          values (v_perfil, v_franja.id, v_franja.fecha, p_zona_id)
-          returning * into v_nueva;
+          select count(*) into v_ocupados
+            from public.reservas r
+           where r.franja_id = v_franja.id
+             and r.estado in ('confirmada', 'asistida');
 
-          resultado := 'creada';
-          reserva   := to_jsonb(v_nueva);
+          if v_ocupados >= v_franja.cupo_total then
+            resultado := 'sin_cupo';
+          else
+            insert into public.reservas (perfil_id, franja_id, fecha, zona_id)
+            values (v_perfil, v_franja.id, v_franja.fecha, p_zona_id)
+            returning * into v_nueva;
+
+            resultado := 'creada';
+            reserva   := to_jsonb(v_nueva);
+          end if;
         end if;
       end if;
     end if;
