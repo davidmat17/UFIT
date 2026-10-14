@@ -177,6 +177,8 @@ Cancelar no borra: cambia el `estado` a `cancelada` y llena `cancelada_en`.
 
 Cada persona puede tener máximo 3 reservas por semana (contada de lunes a domingo), como dice la regla 8 de la normativa. Lo controla un disparador (migración 008). Las canceladas no cuentan; una reserva a la que no se asistió sí, porque ocupó el cupo.
 
+Las reservas se crean solo con `reservar_cupos(franjas, zona)` (migración 010). Reserva una o varias franjas en una sola transacción y bloquea cada franja mientras cuenta y reserva, así que el aforo de 75 no se puede superar aunque muchas personas reserven al mismo tiempo (probado con 100 conexiones simultáneas por los últimos 5 cupos). La reserva recurrente del RF2 es esta misma función llamada con varias franjas: responde franja por franja, y la que pasaría el máximo de 3 por semana queda como `limite_semanal` sin tumbar las demás. Desde la app ya no se puede insertar directo en `reservas`.
+
 ### `asistencias` — ingreso real (RF4)
 Una fila por ingreso efectivo, atada a una reserva. La diferencia entre reservas y asistencias es exactamente lo que el RF12 llama "asistencia efectiva frente a las reservas realizadas".
 
@@ -201,7 +203,8 @@ No están solo en el código de la app. Están en la base, así que se cumplen a
 | Regla | Cómo se hace cumplir |
 |---|---|
 | Una reserva viva por persona por día | Índice único parcial sobre `(perfil_id, fecha)`, ignorando las canceladas |
-| Máximo 3 reservas por persona por semana (regla 8 de la normativa) | Disparador `reservas_maximo_tres_por_semana`; cuentan todas menos las canceladas |
+| Máximo 3 reservas por persona por semana (regla 8 de la normativa) | `reservar_cupos()` responde `limite_semanal`, y el disparador `reservas_maximo_tres_por_semana` queda de respaldo; cuentan todas menos las canceladas |
+| Nunca más de 75 reservas vivas en una franja | Función `reservar_cupos()`: bloquea la franja mientras cuenta y reserva. No hay política de INSERT en `reservas` |
 | La fecha de la reserva es la de su franja | Llave foránea compuesta `(franja_id, fecha)` |
 | El gimnasio abre de lunes a viernes, de 6 a. m. a 8 p. m. | `generar_franjas()` solo crea franjas en ese horario, y las restricciones `franjas_solo_lunes_a_viernes` y `franjas_horario_de_servicio` rechazan cualquier franja por fuera |
 | Máximo 3 rutinas por usuario | Disparador `rutinas_maximo_tres` |
