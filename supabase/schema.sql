@@ -40,6 +40,9 @@ create table public.perfiles (
   correo          text not null unique,
   telefono        text,
   rol             public.rol_usuario not null default 'usuario',
+  -- Solo para instructores; la ve el usuario en el RF7 y la escribe el
+  -- administrador (migración 011).
+  especialidad    text,
   activo          boolean not null default true,
   creado_en       timestamptz not null default now(),
   actualizado_en  timestamptz not null default now(),
@@ -48,8 +51,15 @@ create table public.perfiles (
   -- cualquier cuenta; esta restricción es la barrera real.
   constraint perfiles_correo_institucional check (
     lower(correo) like '%@uis.edu.co' or lower(correo) like '%@correo.uis.edu.co'
+  ),
+
+  constraint perfiles_especialidad_longitud check (
+    especialidad is null or char_length(btrim(especialidad)) between 1 and 80
   )
 );
+
+comment on column public.perfiles.especialidad is
+  'Solo para instructores: en qué acompaña (por ejemplo, "Entrenamiento funcional"). La ve el usuario en el RF7. La escribe el administrador.';
 
 comment on table public.perfiles is
   'Una fila por persona. El rol decide qué puede hacer: usuario reserva, instructor además es asignable a franjas, administrador gestiona contenidos y ve estadísticas.';
@@ -254,9 +264,11 @@ create table public.asignaciones_instructor (
   id             bigint generated always as identity primary key,
   instructor_id  uuid not null references public.perfiles (id) on delete cascade,
   franja_id      bigint not null references public.franjas (id) on delete cascade,
-  zona_id        smallint references public.zonas (id) on delete set null,
+  -- Sin zona: el instructor trabaja por turnos y está a cargo de todo el
+  -- gimnasio (migración 011).
   creada_en      timestamptz not null default now(),
-  unique (instructor_id, franja_id)
+  -- Un instructor por franja (HU16).
+  constraint asignaciones_un_instructor_por_franja unique (franja_id)
 );
 
 comment on table public.asignaciones_instructor is
@@ -410,6 +422,32 @@ $$;
 create trigger reservas_maximo_tres_por_semana
   before insert or update of estado, fecha on public.reservas
   for each row execute function public.limitar_reservas_semana();
+
+-- Solo se asigna a franjas a quien tiene rol instructor y cuenta activa
+-- (RF13; migración 011).
+create or replace function public.validar_asignacion_instructor()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not exists (
+    select 1
+      from public.perfiles p
+     where p.id = new.instructor_id
+       and p.rol = 'instructor'
+       and p.activo
+  ) then
+    raise exception 'Solo se puede asignar a una persona con rol instructor y cuenta activa';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger asignaciones_solo_instructores
+  before insert or update of instructor_id on public.asignaciones_instructor
+  for each row execute function public.validar_asignacion_instructor();
 
 -- Registra el ingreso a partir del QR (RF4). Devuelve la reserva o falla
 -- con un mensaje que la app muestra tal cual.
@@ -615,6 +653,55 @@ comment on function public.reservar_cupos(bigint[], smallint) is
 -- Solo quien inició sesión. Sin esto, PostgREST la expone también a anon.
 revoke all on function public.reservar_cupos(bigint[], smallint) from public, anon;
 grant execute on function public.reservar_cupos(bigint[], smallint) to authenticated;
+
+-- RF7: las franjas de un rango con su instructor, si tiene (migración
+-- 011). Es security definer porque un usuario no puede leer el perfil de
+-- otra persona; por eso devuelve solo nombre, apellido y especialidad.
+create function public.agenda_instructores(
+  p_desde date,
+  p_hasta date
+)
+returns table (
+  franja_id     bigint,
+  fecha         date,
+  hora_inicio   time,
+  hora_fin      time,
+  abierta       boolean,
+  instructor    text,
+  especialidad  text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select f.id,
+         f.fecha,
+         f.hora_inicio,
+         f.hora_fin,
+         f.estado = 'abierta',
+         -- Un instructor que se desactivó o dejó de serlo no se muestra:
+         -- la franja queda "sin instructor asignado".
+         case when p.id is not null then p.nombre || ' ' || p.apellido end,
+         case when p.id is not null then p.especialidad end
+    from public.franjas f
+    left join public.asignaciones_instructor a on a.franja_id = f.id
+    left join public.perfiles p
+           on p.id = a.instructor_id
+          and p.rol = 'instructor'
+          and p.activo
+   where f.fecha between p_desde and p_hasta
+     -- Máximo 62 días por consulta: suficiente para cualquier semana del
+     -- calendario y evita que alguien pida años enteros.
+     and p_hasta - p_desde <= 62
+   order by f.fecha, f.hora_inicio;
+$$;
+
+comment on function public.agenda_instructores(date, date) is
+  'RF7: las franjas del rango con el instructor asignado (nombre y especialidad), o null si no tiene. Solo para quien inició sesión.';
+
+revoke all on function public.agenda_instructores(date, date) from public, anon;
+grant execute on function public.agenda_instructores(date, date) to authenticated;
 
 -- Mantiene actualizado_en al día.
 create or replace function public.tocar_actualizado_en()

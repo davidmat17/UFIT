@@ -6,11 +6,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/datos/errores.dart';
 import '../../../core/datos/puertos/repositorio_gimnasio.dart';
 import '../../../core/modelos/ejercicio.dart';
+import '../../../core/modelos/franja_con_instructor.dart';
 import '../../../core/modelos/maquina.dart';
 import '../../../core/modelos/normativa.dart';
 import '../../../core/modelos/zona.dart';
 import '../../../core/supabase/supabase_config.dart';
 import '../../../core/supabase/traductor_errores.dart';
+import 'respuestas_de_instructores.dart';
 
 /// Adaptador del puerto de gimnasio contra Supabase.
 ///
@@ -91,6 +93,32 @@ class RepositorioGimnasioSupabase implements RepositorioGimnasio {
       ejercicios: ejercicios,
     );
   }
+
+  @override
+  Future<List<FranjaConInstructor>> agendaInstructores({
+    required DateTime desde,
+    required DateTime hasta,
+  }) async {
+    try {
+      // Es una función de la base y no una consulta a perfiles porque un
+      // usuario no puede leer el perfil de otra persona (RLS). La función
+      // devuelve solo nombre y especialidad del instructor.
+      final Object? datos = await _bd.rpc(
+        'agenda_instructores',
+        params: <String, dynamic>{
+          'p_desde': _soloFecha(desde),
+          'p_hasta': _soloFecha(hasta),
+        },
+      );
+      return agendaDesdeRespuesta(datos);
+    } catch (e) {
+      throw traducirError(e, 'No se pudo cargar el horario de instructores');
+    }
+  }
+
+  static String _soloFecha(DateTime d) => '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
 
   /// Clave con la que se guarda en el teléfono la última normativa
   /// descargada (CU06, flujo 2a).
