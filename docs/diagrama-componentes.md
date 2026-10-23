@@ -147,7 +147,7 @@ Poniendo las reglas dentro de PostgreSQL, la base misma rechaza la petición sin
 | RF8 Datos antropométricos | Cuenta → Cliente → API → `medidas_antropometricas` |
 | RF9 Historial | Reservas → Cliente → API → `reservas`, `asistencias` |
 | RF10 Datos personales | Cuenta → Cliente → API → `perfiles` |
-| RF11 Rutinas | Entrenamiento → Cliente → API → `rutinas`, `rutina_ejercicios` |
+| RF11 Rutinas | Entrenamiento → Cliente → API (lectura) y Funciones (`crear_rutina`, `eliminar_rutina`) → `rutinas`, `rutina_ejercicios` |
 | RF12 Estadísticas | Administración → Cliente → API → `reservas`, `asistencias` |
 | RF13 Gestión de contenidos | Administración → Cliente → API → `maquinas`, `ejercicios`, `normativa` |
 

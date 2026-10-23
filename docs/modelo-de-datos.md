@@ -112,6 +112,7 @@ erDiagram
         uuid perfil_id FK
         text nombre
         timestamptz creada_en
+        uuid solicitud_id UK
     }
     RUTINA_EJERCICIOS {
         bigint id PK
@@ -121,6 +122,7 @@ erDiagram
         arreglo dias
         smallint series
         smallint repeticiones
+        smallint minutos
     }
     MEDIDAS {
         bigint id PK
@@ -188,7 +190,18 @@ Las reservas se crean solo con `reservar_cupos(franjas, zona)` (migración 010).
 Una fila por ingreso efectivo, atada a una reserva. La diferencia entre reservas y asistencias es exactamente lo que el RF12 llama "asistencia efectiva frente a las reservas realizadas".
 
 ### `rutinas` y `rutina_ejercicios` — entrenamiento (RF11)
-Máximo 3 rutinas por usuario, forzado por un disparador en la base. Cada línea de la rutina tiene ejercicio, máquina, días, series y repeticiones. Los días son un arreglo de números: `{1,3,5}` es lunes, miércoles y viernes.
+Máximo 3 rutinas por usuario. Cada línea de la rutina tiene ejercicio, máquina, días y lo que se hace: repeticiones, minutos o ambos, con series opcionales. Los días son un arreglo de números: `{1,3,5}` es lunes, miércoles y viernes.
+
+Desde la migración 013 (23 de octubre de 2026):
+- **Rangos.** Los días van solo de lunes a viernes, porque el gimnasio no abre el fin de semana. Las series van de 1 a 10, las repeticiones de 1 a 50 y los minutos de 1 a 60. El nombre tiene de 1 a 60 caracteres.
+- **Repeticiones o minutos (migración 014).** Las series, las repeticiones y los minutos son opcionales, pero cada ejercicio lleva repeticiones, minutos o ambos (restricción `rutina_ejercicios_repeticiones_o_minutos`). Así la caminata o la elíptica se registran por tiempo, sin series ni repeticiones.
+- **Máquina.** Tiene que ser una de las que sirven para ese ejercicio según `ejercicio_maquina`.
+- **Crear.** Se hace con `crear_rutina(nombre, ejercicios, solicitud)`, que guarda la rutina y todos sus ejercicios en una sola transacción.
+  - Toma un bloqueo por persona, así que la cuarta rutina es imposible aunque la pidan dos celulares al tiempo.
+  - Responde `creada`, `ya_creada`, `maximo_rutinas` o `nombre_repetido`. Los datos inválidos fallan con un mensaje y no dejan nada guardado.
+  - `solicitud_id` la genera la app una vez por formulario: si la red falla y se reintenta, la base responde `ya_creada` en vez de duplicar.
+- **Eliminar.** Se hace con `eliminar_rutina(id)`, que borra en cascada los ejercicios y responde `eliminada` o `ya_eliminada`. Lo segundo también si la rutina es de otra persona, para no revelar si ese id existe.
+- **Permisos.** Desde la app estas dos tablas solo se leen. El disparador `rutinas_maximo_tres` queda de respaldo.
 
 ### `medidas_antropometricas` — perfil físico (RF8)
 Una fila por medición, con su propio `id` y la fecha `registrada_en`, que pone la base. Peso y estatura son obligatorios; las circunferencias, opcionales. Cada quien ve, registra y borra solo las suyas; no hay edición.
@@ -217,8 +230,11 @@ No están solo en el código de la app. Están en la base, así que se cumplen a
 | Nunca más de 75 reservas vivas en una franja | Función `reservar_cupos()`: bloquea la franja mientras cuenta y reserva. No hay política de INSERT en `reservas` |
 | La fecha de la reserva es la de su franja | Llave foránea compuesta `(franja_id, fecha)` |
 | El gimnasio abre de lunes a viernes, de 6 a. m. a 8 p. m. | `generar_franjas()` solo crea franjas en ese horario, y las restricciones `franjas_solo_lunes_a_viernes` y `franjas_horario_de_servicio` rechazan cualquier franja por fuera |
-| Máximo 3 rutinas por usuario | Disparador `rutinas_maximo_tres` |
-| Los días de una rutina son del 1 al 7 | Restricción `check` sobre el arreglo |
+| Máximo 3 rutinas por usuario | Función `crear_rutina()` con bloqueo por persona; el disparador `rutinas_maximo_tres` queda de respaldo |
+| Una rutina se guarda completa o no se guarda, y un reintento no la duplica | Función `crear_rutina()` (una transacción) y `rutinas_solicitud_unica` |
+| Los días de una rutina van de lunes a viernes; series de 1 a 10, repeticiones de 1 a 50 y minutos de 1 a 60 | Restricciones `rutina_ejercicios_dias_lunes_a_viernes`, `rutina_ejercicios_series_rango`, `rutina_ejercicios_repeticiones_rango` y `rutina_ejercicios_minutos_rango` |
+| Cada ejercicio de una rutina lleva repeticiones, minutos o ambos | Restricción `rutina_ejercicios_repeticiones_o_minutos` |
+| La máquina de un ejercicio de la rutina sirve para ese ejercicio | Función `crear_rutina()`, contra `ejercicio_maquina` |
 | Una sola normativa vigente | Índice único parcial sobre `vigente` |
 | Una cancelada tiene fecha de cancelación | Restricción `check` que amarra estado y fecha |
 | Se cancela con la antelación mínima configurada, y nunca una reserva con ingreso registrado | Función `cancelar_reserva()`. No hay política de UPDATE en `reservas` |
