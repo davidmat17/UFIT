@@ -11,6 +11,7 @@ import 'package:ufit/core/modelos/franja_disponible.dart';
 import 'package:ufit/core/modelos/maquina.dart';
 import 'package:ufit/core/modelos/normativa.dart';
 import 'package:ufit/core/modelos/reserva.dart';
+import 'package:ufit/core/modelos/resultado_cancelacion.dart';
 import 'package:ufit/core/modelos/resultado_reserva.dart';
 import 'package:ufit/core/modelos/zona.dart';
 import 'package:ufit/core/rutas.dart';
@@ -275,7 +276,11 @@ class _ReservasFalsas implements RepositorioReservas {
       throw UnimplementedError();
 
   @override
-  Future<void> cancelar(int reservaId) => throw UnimplementedError();
+  Future<RespuestaCancelacion> cancelar(int reservaId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<int> horasAntelacionCancelar() async => horasAntelacionPorDefecto;
 
   @override
   Future<Reserva> registrarAsistencia(String codigoQr) =>
@@ -1379,13 +1384,14 @@ void main() {
       );
     });
 
-    testWidgets('"Ver mis reservas" lleva al historial', (WidgetTester tester) async {
+    testWidgets('"Ver mis reservas" lleva a Mis reservas (RF3)',
+        (WidgetTester tester) async {
       await _abrir(
         tester,
         _ReservasFalsas(franjas: _franjasDePrueba()),
         rutas: <String, WidgetBuilder>{
-          Rutas.rf09Historial: (_) =>
-              const Scaffold(body: Text('Pantalla del historial')),
+          Rutas.rf03CancelarReserva: (_) =>
+              const Scaffold(body: Text('Pantalla de mis reservas')),
         },
       );
 
@@ -1394,7 +1400,7 @@ void main() {
       await _tocar(tester, find.widgetWithText(FilledButton, 'Reservar'));
       await _tocar(tester, find.text('Ver mis reservas'));
 
-      expect(find.text('Pantalla del historial'), findsOneWidget);
+      expect(find.text('Pantalla de mis reservas'), findsOneWidget);
     });
 
     testWidgets('la repetición ofrece solo de lunes a viernes y máximo 3 días',

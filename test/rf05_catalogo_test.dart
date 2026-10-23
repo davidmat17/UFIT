@@ -83,12 +83,11 @@ const List<Maquina> _maquinas = <Maquina>[
 /// Repositorio falso del RF5: el catálogo en memoria, sin red.
 class _GimnasioFalso implements RepositorioGimnasio {
   _GimnasioFalso({
-    this.zonasDePrueba = _zonas,
     this.maquinasDePrueba = _maquinas,
     this.falla = false,
   });
 
-  final List<Zona> zonasDePrueba;
+  final List<Zona> zonasDePrueba = _zonas;
   final List<Maquina> maquinasDePrueba;
   bool falla;
 

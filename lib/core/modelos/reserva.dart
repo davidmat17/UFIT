@@ -18,6 +18,8 @@ class Reserva {
     required this.zonaId,
     required this.estado,
     required this.codigoQr,
+    this.horaInicio,
+    this.horaFin,
   });
 
   final int id;
@@ -29,6 +31,12 @@ class Reserva {
 
   /// Lo que se codifica en el QR de ingreso.
   final String codigoQr;
+
+  /// Hora de la franja como la entrega Postgres ("06:00:00"). Solo viene
+  /// cuando la consulta la trae junto con la reserva (misReservas); el
+  /// RF3 la necesita para saber hasta cuándo se puede cancelar.
+  final String? horaInicio;
+  final String? horaFin;
 
   bool get estaViva =>
       estado == EstadoReserva.confirmada || estado == EstadoReserva.asistida;

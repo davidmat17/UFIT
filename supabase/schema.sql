@@ -276,6 +276,28 @@ comment on table public.asignaciones_instructor is
 
 
 -- ---------------------------------------------------------------------
+-- 8b. Configuración del gimnasio  (RF3, RF13)
+--     Una sola fila con los parámetros que el administrador ajusta
+--     (migración 012).
+-- ---------------------------------------------------------------------
+
+create table public.configuracion (
+  -- Siempre true: impide que exista una segunda fila.
+  id                         boolean primary key default true check (id),
+  horas_antelacion_cancelar  smallint not null default 3
+    check (horas_antelacion_cancelar between 0 and 24),
+  actualizado_en             timestamptz not null default now()
+);
+
+comment on table public.configuracion is
+  'Parámetros del gimnasio que cambia el administrador (RF13). Una sola fila.';
+comment on column public.configuracion.horas_antelacion_cancelar is
+  'RF3: una reserva se puede cancelar hasta esta cantidad de horas antes de que empiece la franja.';
+
+insert into public.configuracion (id) values (true);
+
+
+-- ---------------------------------------------------------------------
 -- 9. Vista de disponibilidad  (RF2)
 --    El calendario semanal consulta esto. Contar reservas en el momento
 --    evita guardar un contador que se pueda desincronizar.
@@ -654,6 +676,104 @@ comment on function public.reservar_cupos(bigint[], smallint) is
 revoke all on function public.reservar_cupos(bigint[], smallint) from public, anon;
 grant execute on function public.reservar_cupos(bigint[], smallint) to authenticated;
 
+-- RF3: cancelar una reserva propia con la antelación mínima (migración
+-- 012). Es la única vía para cambiar una reserva desde la app.
+-- Qué devuelve (una sola fila):
+--
+--   resultado        significado
+--   ---------------  ---------------------------------------------------
+--   cancelada        se canceló ahora; el cupo quedó libre
+--   ya_cancelada     ya estaba cancelada, por ejemplo desde otro
+--                    dispositivo (CU03, 4c). Reintentar es seguro.
+--   ya_asistida      el ingreso ya se registró con el QR (CU03, 4b)
+--   fuera_de_plazo   faltan menos horas de las permitidas para que
+--                    empiece la franja, o ya pasó (CU03, 4a)
+--   inexistente      no existe o no es de quien la pide
+--
+-- La columna reserva trae la reserva tal como quedó (null si es
+-- inexistente) y horas_antelacion, el plazo vigente, para que la app
+-- explique la restricción con el número correcto.
+--
+-- Sin sesión falla con un mensaje que la app muestra tal cual.
+create or replace function public.cancelar_reserva(p_reserva_id bigint)
+returns table (
+  resultado         text,
+  reserva           jsonb,
+  horas_antelacion  smallint
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_perfil   uuid := auth.uid();
+  -- La base corre en UTC y las franjas están en hora de Bucaramanga.
+  v_ahora    timestamp := timezone('America/Bogota', now());
+  v_reserva  public.reservas;
+  v_franja   public.franjas;
+begin
+  if v_perfil is null then
+    raise exception 'Inicia sesión para cancelar una reserva';
+  end if;
+
+  select c.horas_antelacion_cancelar into horas_antelacion
+    from public.configuracion c;
+  horas_antelacion := coalesce(horas_antelacion, 3);
+
+  -- El mismo bloqueo por persona que reservar_cupos(): cancelar y
+  -- reservar a la vez desde dos celulares se atienden en orden.
+  perform pg_advisory_xact_lock(hashtext(v_perfil::text));
+
+  select * into v_reserva
+    from public.reservas r
+   where r.id = p_reserva_id
+     and r.perfil_id = v_perfil
+     for update;
+
+  if not found then
+    resultado := 'inexistente';
+    reserva   := null;
+    return next;
+    return;
+  end if;
+
+  select * into v_franja from public.franjas f where f.id = v_reserva.franja_id;
+
+  if v_reserva.estado = 'cancelada' then
+    resultado := 'ya_cancelada';
+
+  elsif v_reserva.estado = 'asistida'
+        or exists (select 1 from public.asistencias a where a.reserva_id = v_reserva.id) then
+    resultado := 'ya_asistida';
+
+  elsif v_reserva.estado <> 'confirmada'
+        or v_ahora > (v_franja.fecha + v_franja.hora_inicio)
+                     - make_interval(hours => horas_antelacion) then
+    resultado := 'fuera_de_plazo';
+
+  else
+    update public.reservas r
+       set estado = 'cancelada',
+           cancelada_en = now()
+     where r.id = v_reserva.id
+    returning * into v_reserva;
+
+    resultado := 'cancelada';
+  end if;
+
+  reserva := to_jsonb(v_reserva);
+  return next;
+end;
+$$;
+
+comment on function public.cancelar_reserva(bigint) is
+  'Cancela una reserva propia si faltan al menos las horas de configuracion.horas_antelacion_cancelar para la franja. Libera el cupo. Es la única vía para cambiar una reserva desde la app (RF3).';
+
+-- Solo quien inició sesión. Sin esto, PostgREST la expone también a anon.
+revoke all on function public.cancelar_reserva(bigint) from public, anon;
+grant execute on function public.cancelar_reserva(bigint) to authenticated;
+
+
 -- RF7: las franjas de un rango con su instructor, si tiene (migración
 -- 011). Es security definer porque un usuario no puede leer el perfil de
 -- otra persona; por eso devuelve solo nombre, apellido y especialidad.
@@ -718,6 +838,10 @@ create trigger perfiles_actualizado_en
   before update on public.perfiles
   for each row execute function public.tocar_actualizado_en();
 
+create trigger configuracion_actualizado_en
+  before update on public.configuracion
+  for each row execute function public.tocar_actualizado_en();
+
 
 -- ---------------------------------------------------------------------
 -- 11. Seguridad a nivel de fila (RLS)
@@ -739,6 +863,7 @@ alter table public.rutina_ejercicios        enable row level security;
 alter table public.medidas_antropometricas  enable row level security;
 alter table public.normativa                enable row level security;
 alter table public.asignaciones_instructor  enable row level security;
+alter table public.configuracion            enable row level security;
 
 -- Perfiles: cada quien ve y edita el suyo; el administrador ve todos.
 create policy perfiles_ver_propio on public.perfiles
@@ -812,12 +937,20 @@ create policy reservas_ver_propias on public.reservas
 -- app no se puede insertar directo en la tabla.
 revoke insert on public.reservas from anon, authenticated;
 
--- Pendiente para el RF3: esta política deja actualizar CUALQUIER columna
--- de la reserva propia, incluida franja_id, lo que permitiría saltarse el
--- aforo. Cancelar debería pasar por una función como reservar_cupos()
--- (con la regla de las 3 horas) y quitarse el UPDATE directo.
-create policy reservas_cancelar_propia on public.reservas
-  for update using (perfil_id = auth.uid()) with check (perfil_id = auth.uid());
+-- Tampoco hay política de UPDATE: se cancela solo con cancelar_reserva()
+-- (sección 10), que revisa el dueño, el estado y el plazo. Antes existía
+-- reservas_cancelar_propia, que dejaba cambiar cualquier columna, incluida
+-- franja_id; la quitó la migración 012.
+revoke update on public.reservas from anon, authenticated;
+
+-- Configuración: la leen todos los que iniciaron sesión (la app explica
+-- el plazo para cancelar); solo el administrador la cambia.
+create policy configuracion_lectura on public.configuracion
+  for select to authenticated using (true);
+create policy configuracion_admin on public.configuracion
+  for update using (public.es_administrador()) with check (public.es_administrador());
+revoke insert, delete on public.configuracion from anon, authenticated;
+revoke all on public.configuracion from anon;
 
 create policy asistencias_ver on public.asistencias
   for select using (
