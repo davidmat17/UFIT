@@ -4,6 +4,7 @@ import '../../../core/datos/errores.dart';
 import '../../../core/datos/puertos/repositorio_reservas.dart';
 import '../../../core/modelos/franja_disponible.dart';
 import '../../../core/modelos/reserva.dart';
+import '../../../core/modelos/resultado_cancelacion.dart';
 import '../../../core/modelos/resultado_reserva.dart';
 import '../../../core/supabase/supabase_config.dart';
 import '../../../core/supabase/traductor_errores.dart';
@@ -12,14 +13,14 @@ import 'respuestas_de_reservas.dart';
 
 /// Adaptador del puerto de reservas contra Supabase (RF2, RF3, RF4, RF9).
 ///
-/// El RF2 está completo aquí: la disponibilidad, reservar una franja y
-/// reservar varias a la vez (reservas recurrentes). Cancelar (RF3), el
-/// registro de asistencia (RF4) y el historial (RF9) se completan al
-/// trabajar cada requerimiento.
+/// Aquí están completos el RF2 (la disponibilidad, reservar una franja y
+/// reservar varias a la vez) y el RF3 (cancelar). El registro de
+/// asistencia (RF4) y el historial (RF9) se completan al trabajar cada
+/// requerimiento.
 ///
-/// Las reservas no se insertan desde la app: pasan por la función
-/// reservar_cupos() de la base, que garantiza el aforo de la franja aun
-/// cuando mucha gente reserva a la vez (supabase/schema.sql).
+/// Las reservas no se insertan ni se modifican desde la app: pasan por
+/// las funciones reservar_cupos() y cancelar_reserva() de la base, que
+/// garantizan el aforo y el plazo para cancelar (supabase/schema.sql).
 class RepositorioReservasSupabase implements RepositorioReservas {
   const RepositorioReservasSupabase();
 
@@ -104,8 +105,33 @@ class RepositorioReservasSupabase implements RepositorioReservas {
   }
 
   @override
-  Future<void> cancelar(int reservaId) {
-    throw UnimplementedError('Pendiente: RF3, responsable David');
+  Future<RespuestaCancelacion> cancelar(int reservaId) async {
+    try {
+      final Object? datos = await _bd.rpc(
+        'cancelar_reserva',
+        params: <String, dynamic>{'p_reserva_id': reservaId},
+      );
+      return cancelacionDesdeRespuesta(datos);
+    } catch (e) {
+      // Sin sesión llega como excepción con el mensaje listo para mostrar.
+      // Reintentar es seguro: una reserva ya cancelada responde
+      // ya_cancelada.
+      throw traducirError(e, 'No se pudo cancelar la reserva');
+    }
+  }
+
+  @override
+  Future<int> horasAntelacionCancelar() async {
+    try {
+      final Map<String, dynamic>? fila = await _bd
+          .from('configuracion')
+          .select('horas_antelacion_cancelar')
+          .maybeSingle();
+      final Object? horas = fila?['horas_antelacion_cancelar'];
+      return horas is int ? horas : horasAntelacionPorDefecto;
+    } catch (e) {
+      throw traducirError(e, 'No se pudo consultar el plazo para cancelar');
+    }
   }
 
   @override
@@ -123,7 +149,8 @@ class RepositorioReservasSupabase implements RepositorioReservas {
       // quien administra puede ver las reservas de todos.
       var consulta = _bd
           .from('reservas')
-          .select('id, perfil_id, franja_id, fecha, zona_id, estado, codigo_qr')
+          .select('id, perfil_id, franja_id, fecha, zona_id, estado, codigo_qr, '
+              'franjas(hora_inicio, hora_fin)')
           .eq('perfil_id', usuario.id);
       if (desde != null) consulta = consulta.gte('fecha', fechaIso(desde));
       if (hasta != null) consulta = consulta.lte('fecha', fechaIso(hasta));

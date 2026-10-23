@@ -42,7 +42,7 @@ flowchart TB
         rpc["Funciones del servidor<br/>registrar_asistencia<br/>generar_franjas"]
 
         subgraph bd["PostgreSQL"]
-            tablas["13 tablas<br/>+ vista_disponibilidad"]
+            tablas["14 tablas<br/>+ vista_disponibilidad"]
             rls["Políticas de seguridad<br/>por fila (RLS)"]
         end
     end
@@ -118,7 +118,7 @@ Tres servicios sobre una sola base de datos:
 
 ### PostgreSQL
 
-- **Las trece tablas** y la vista de disponibilidad, descritas en el [modelo de datos](modelo-de-datos.md).
+- **Las catorce tablas** y la vista de disponibilidad, descritas en el [modelo de datos](modelo-de-datos.md).
 - **Las políticas de seguridad por fila**, que son un componente en sí mismo y no un detalle: se ejecutan dentro de la base, antes de devolver cualquier dato, y son las que impiden que un usuario vea las reservas o las medidas corporales de otro.
 
 ---
@@ -139,7 +139,7 @@ Poniendo las reglas dentro de PostgreSQL, la base misma rechaza la petición sin
 |---|---|
 | RF1 Registro e inicio de sesión | Cuenta → Cliente de datos → Autenticación → `perfiles` |
 | RF2 Reservas por franja | Reservas → Cliente → API de datos → `vista_disponibilidad`, `reservas` |
-| RF3 Cancelación | Reservas → Cliente → API de datos → `reservas` |
+| RF3 Cancelación | Reservas → Cliente → Funciones (`cancelar_reserva`) → `reservas`, `configuracion` |
 | RF4 Asistencia por QR | Reservas → Cámara y Cliente → Funciones → `asistencias` |
 | RF5 Catálogo | Gimnasio → Cliente → API de datos → `maquinas`, `ejercicios` |
 | RF6 Normativa | Gimnasio → Cliente → API de datos → `normativa` |

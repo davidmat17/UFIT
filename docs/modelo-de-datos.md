@@ -130,6 +130,10 @@ erDiagram
         numeric circ_cintura_cm
         timestamptz registrada_en
     }
+    CONFIGURACION {
+        boolean id PK
+        smallint horas_antelacion_cancelar
+    }
     NORMATIVA {
         bigint id PK
         text titulo
@@ -144,11 +148,11 @@ erDiagram
     }
 ```
 
-> En el diagrama, `MEDIDAS` es `medidas_antropometricas` y `ASIGNACIONES` es `asignaciones_instructor`; se acortaron para que las cajas quepan. `reserva_id` en `ASISTENCIAS` además es única: una reserva tiene como mucho un ingreso.
+> En el diagrama, `MEDIDAS` es `medidas_antropometricas` y `ASIGNACIONES` es `asignaciones_instructor`; se acortaron para que las cajas quepan. `CONFIGURACION` no tiene relaciones: es una sola fila de parámetros. `reserva_id` en `ASISTENCIAS` además es única: una reserva tiene como mucho un ingreso.
 
 ---
 
-## Las trece tablas
+## Las catorce tablas
 
 ### `perfiles` — personas
 Extiende `auth.users`, la tabla de cuentas que administra Supabase. Comparte su `id`, así que hay exactamente un perfil por cuenta; el correo y la contraseña los guarda Supabase, no nosotros.
@@ -174,7 +178,7 @@ Guarda quién, en qué franja, a qué zona, en qué estado y con qué código QR
 
 La columna `fecha` está duplicada de `franjas` a propósito, y una llave foránea compuesta `(franja_id, fecha)` garantiza que nunca se desincronice. Está ahí porque hace posible la regla de una reserva por día sin consultar otra tabla.
 
-Cancelar no borra: cambia el `estado` a `cancelada` y llena `cancelada_en`.
+Cancelar no borra: cambia el `estado` a `cancelada` y llena `cancelada_en`. Desde la migración 012 (RF3, 23 de octubre de 2026) solo se cancela con `cancelar_reserva(reserva)`, que revisa que la reserva sea de quien la pide, que siga confirmada y que falten al menos las horas de antelación de `configuracion` (3 por defecto) para que empiece la franja. Responde con un texto: `cancelada`, `ya_cancelada` (cancelar dos veces es seguro), `ya_asistida` (el ingreso ya se registró con el QR), `fuera_de_plazo` o `inexistente`. El cupo queda libre en el mismo instante, porque la disponibilidad y el máximo de 3 por semana no cuentan las canceladas. La política `reservas_cancelar_propia`, que dejaba cambiar cualquier columna de la reserva propia (incluida `franja_id`, con lo que se podía saltar el aforo), se quitó: desde la app no se puede actualizar `reservas` directamente.
 
 Cada persona puede tener máximo 3 reservas por semana (contada de lunes a domingo), como dice la regla 8 de la normativa. Lo controla un disparador (migración 008). Las canceladas no cuentan; una reserva a la que no se asistió sí, porque ocupó el cupo.
 
@@ -197,6 +201,9 @@ El administrador asigna un instructor a una franja; el usuario consulta esa agen
 
 Desde la migración 011 cada franja tiene como mucho un instructor (HU16) y solo se puede asignar a alguien con rol `instructor` y cuenta activa. Como un usuario no puede leer el perfil de otra persona, el RF7 no consulta `perfiles`: llama a `agenda_instructores(desde, hasta)`, que devuelve las franjas del rango con nombre y especialidad del instructor (nunca su correo, documento ni teléfono), o nada si no tiene. Si el instructor se desactiva o deja de serlo, su franja aparece sin instructor.
 
+### `configuracion` — parámetros del gimnasio (RF3, RF13)
+Una sola fila (la llave primaria es un `boolean` que solo acepta `true`). Por ahora guarda `horas_antelacion_cancelar`, entre 0 y 24, con 3 por defecto: el RF3 dice que ese plazo lo configura el administrador. La leen todos los que iniciaron sesión, porque la app explica el plazo; solo el administrador la cambia, y la pantalla para hacerlo llega con el RF13. Se agregó en la migración 012.
+
 ---
 
 ## Reglas que hace cumplir la base
@@ -214,6 +221,8 @@ No están solo en el código de la app. Están en la base, así que se cumplen a
 | Los días de una rutina son del 1 al 7 | Restricción `check` sobre el arreglo |
 | Una sola normativa vigente | Índice único parcial sobre `vigente` |
 | Una cancelada tiene fecha de cancelación | Restricción `check` que amarra estado y fecha |
+| Se cancela con la antelación mínima configurada, y nunca una reserva con ingreso registrado | Función `cancelar_reserva()`. No hay política de UPDATE en `reservas` |
+| Una sola fila de configuración | Llave primaria `boolean` con `check (id)` |
 | Nadie ve reservas, rutinas ni medidas de otro | Políticas de seguridad a nivel de fila (RLS) |
 | El QR solo sirve en su franja y una sola vez | Función `registrar_asistencia()` |
 | Máximo un instructor por franja (HU16) | Restricción `asignaciones_un_instructor_por_franja` sobre `franja_id` |

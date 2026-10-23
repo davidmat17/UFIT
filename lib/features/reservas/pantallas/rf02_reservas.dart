@@ -195,8 +195,14 @@ class _PantallaReservasState extends State<PantallaReservas> {
     );
 
     if (salida == SalidaDeLaHoja.verMisReservas && mounted) {
-      Navigator.of(context).pushNamed(Rutas.rf09Historial);
+      _abrirMisReservas();
     }
+  }
+
+  /// "Mis reservas" (RF3). Al volver se recarga: pudo haber cancelado.
+  Future<void> _abrirMisReservas() async {
+    await Navigator.of(context).pushNamed(Rutas.rf03CancelarReserva);
+    if (mounted) _cargar(silencioso: true);
   }
 
   // -------------------------------------------------------------------
@@ -208,7 +214,16 @@ class _PantallaReservasState extends State<PantallaReservas> {
     final DateTime ahora = widget.reloj();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Reservar cupo')),
+      appBar: AppBar(
+        title: const Text('Reservar cupo'),
+        actions: <Widget>[
+          IconButton(
+            tooltip: 'Mis reservas',
+            icon: const Icon(Icons.event_note),
+            onPressed: _abrirMisReservas,
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: () => _cargar(silencioso: true),
         child: ListView(

@@ -1,5 +1,6 @@
 import '../../modelos/franja_disponible.dart';
 import '../../modelos/reserva.dart';
+import '../../modelos/resultado_cancelacion.dart';
 import '../../modelos/resultado_reserva.dart';
 
 /// Puerto de reservas y asistencia (RF2, RF3, RF4, RF9).
@@ -26,8 +27,18 @@ abstract class RepositorioReservas {
     required int zonaId,
   });
 
-  Future<void> cancelar(int reservaId);
+  /// Cancela una reserva propia (RF3). La base revisa el plazo y el
+  /// estado y responde qué pasó; cancelar dos veces es seguro (la segunda
+  /// responde [ResultadoCancelacion.yaCancelada]). Falla con un
+  /// ErrorDeDatos solo cuando no hay sesión o no hay conexión.
+  Future<RespuestaCancelacion> cancelar(int reservaId);
 
+  /// Cuántas horas antes de la franja se puede cancelar (RF3). Lo
+  /// configura el administrador; por defecto, 3.
+  Future<int> horasAntelacionCancelar();
+
+  /// Las reservas de quien tiene la sesión abierta, con la hora de su
+  /// franja.
   Future<List<Reserva>> misReservas({DateTime? desde, DateTime? hasta});
 
   /// Registra el ingreso a partir del código del QR (RF4).
