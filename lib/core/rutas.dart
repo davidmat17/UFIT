@@ -11,6 +11,10 @@ class Rutas {
   /// Pantalla de desarrollo: comprueba la conexión con Supabase.
   static const String diagnostico = '/diagnostico';
 
+  /// El menú de desarrollo con los 13 requerimientos. Desde que existe la
+  /// pantalla principal se abre desde el perfil.
+  static const String menuDesarrollo = '/desarrollo';
+
   // Cuenta y perfil
   static const String rf01Autenticacion = '/rf01-autenticacion';
   static const String rf08Antropometria = '/rf08-antropometria';

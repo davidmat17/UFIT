@@ -209,7 +209,7 @@ class _PestanaNormativaState extends State<PestanaNormativa> {
           Text('Plazo para cancelar reservas', style: textos.titleMedium),
           const SizedBox(height: 4),
           Text(
-            'Cuántas horas antes de la franja se puede cancelar (RF3).',
+            'Cuántas horas antes de la franja se puede cancelar una reserva.',
             style: textos.bodyMedium,
           ),
           const SizedBox(height: 8),

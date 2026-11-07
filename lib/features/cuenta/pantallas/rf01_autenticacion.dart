@@ -200,13 +200,21 @@ class _PantallaIngresoState extends State<_PantallaIngreso> {
     final TextTheme textos = Theme.of(context).textTheme;
     final String? mensaje = _error ?? widget.aviso;
 
+    // Diseño del storyboard de la Entrega 2B (pantalla 01): foto del
+    // gimnasio arriba, lema y el botón de ingreso abajo. Registrarse es
+    // ingresar por primera vez con la cuenta institucional, así que no
+    // hay un botón aparte de "Crear cuenta".
     return Scaffold(
+      extendBodyBehindAppBar: true,
       // Barra de ayuda: lo que se puede consultar sin iniciar sesión
       // (RF6, CU06). Se navega por nombre de ruta para no importar el
       // módulo de gimnasio desde el de cuenta.
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
         actions: <Widget>[
           TextButton.icon(
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
             onPressed: () =>
                 Navigator.pushNamed(context, Rutas.rf06Normativa),
             icon: const Icon(Icons.gavel_outlined),
@@ -215,55 +223,112 @@ class _PantallaIngresoState extends State<_PantallaIngreso> {
           const SizedBox(width: 8),
         ],
       ),
-      body: SafeArea(
-        child: Center(
-          child: ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.all(28),
-            children: <Widget>[
-              Icon(Icons.fitness_center, size: 56, color: esquema.primary),
-              const SizedBox(height: 16),
-              Text('UFIT',
-                  textAlign: TextAlign.center,
-                  style: textos.displaySmall?.copyWith(
-                    color: esquema.primary,
-                    fontWeight: FontWeight.w700,
-                  )),
-              const SizedBox(height: 6),
-              Text(
-                'Gimnasio de la Universidad Industrial de Santander',
-                textAlign: TextAlign.center,
-                style: textos.bodyMedium
-                    ?.copyWith(color: esquema.onSurfaceVariant),
-              ),
-              const SizedBox(height: 40),
-              if (mensaje != null) ...<Widget>[
-                _Aviso(texto: mensaje),
-                const SizedBox(height: 16),
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: <Widget>[
+          SizedBox(
+            height: 340,
+            child: Stack(
+              fit: StackFit.expand,
+              children: <Widget>[
+                Image.asset(
+                  'assets/imagenes/ingreso.jpg',
+                  fit: BoxFit.cover,
+                  semanticLabel: 'Mancuernas en el gimnasio',
+                  errorBuilder: (_, _, _) =>
+                      Container(color: esquema.primaryContainer),
+                ),
+                // Degradado para que el texto se lea sobre la foto.
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: <Color>[
+                        Colors.black.withValues(alpha: 0.35),
+                        esquema.surface,
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 24,
+                  right: 24,
+                  bottom: 12,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: esquema.primary,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'UNIVERSIDAD INDUSTRIAL DE SANTANDER',
+                          style: textos.labelSmall?.copyWith(
+                            color: esquema.onPrimary,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'ENTRENA.\nRESERVA.\nAVANZA.',
+                        style: textos.displaySmall?.copyWith(
+                          color: esquema.onSurface,
+                          fontWeight: FontWeight.w900,
+                          height: 1.05,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
-              FilledButton.icon(
-                onPressed: _abriendo ? null : _ingresar,
-                icon: _abriendo
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.school_outlined),
-                label: const Text('Ingresar con correo institucional'),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Usa tu cuenta @uis.edu.co o @correo.uis.edu.co. '
-                'Si es tu primera vez, te pediremos unos datos para '
-                'crear tu cuenta.',
-                textAlign: TextAlign.center,
-                style: textos.bodySmall
-                    ?.copyWith(color: esquema.onSurfaceVariant),
-              ),
-            ],
+            ),
           ),
-        ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                if (mensaje != null) ...<Widget>[
+                  _Aviso(texto: mensaje),
+                  const SizedBox(height: 16),
+                ],
+                FilledButton.icon(
+                  onPressed: _abriendo ? null : _ingresar,
+                  icon: _abriendo
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.school_outlined),
+                  label: const Text('Ingresar con correo institucional'),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Usa tu cuenta @uis.edu.co o @correo.uis.edu.co. '
+                  'Si es tu primera vez, te pediremos unos datos para '
+                  'crear tu cuenta.',
+                  textAlign: TextAlign.center,
+                  style: textos.bodySmall
+                      ?.copyWith(color: esquema.onSurfaceVariant),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'App exclusiva para la comunidad universitaria UIS',
+                  textAlign: TextAlign.center,
+                  style: textos.labelSmall?.copyWith(color: esquema.primary),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

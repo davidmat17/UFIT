@@ -24,6 +24,8 @@ La última columna es lo importante: **estas no son afirmaciones, son pruebas qu
 ```
 lib/
 ├── main.dart                    ← punto de composición
+├── app/
+│   └── pantalla_principal.dart  ← inicio con barra inferior (storyboard 2B)
 ├── core/                        ← lo compartido
 │   ├── datos/
 │   │   ├── errores.dart         ← errores en vocabulario del proyecto
@@ -37,8 +39,10 @@ lib/
 │   └── <módulo>/
 │       ├── datos/               ← adaptador: implementa el puerto
 │       └── pantallas/           ← interfaz de usuario
-└── desarrollo/                  ← andamio temporal
+└── desarrollo/                  ← menú de desarrollo, se abre desde el perfil
 ```
+
+`lib/app/` es, como `main.dart`, parte de la composición: la pantalla principal junta pantallas de varios módulos (inicio, reservas, mi QR, info y perfil). Casi todo lo abre por nombre de ruta (`Rutas`); solo importa directamente el RF2 y el RF4, que se muestran como pestañas. Ningún módulo importa `lib/app/`.
 
 ---
 

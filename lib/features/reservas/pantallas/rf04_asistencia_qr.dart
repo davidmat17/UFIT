@@ -302,9 +302,11 @@ class _TarjetaDeCodigo extends StatelessWidget {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     // Fondo blanco siempre, también en tema oscuro: la
-                    // cámara lee mejor negro sobre blanco.
+                    // cámara lee mejor negro sobre blanco. El marco verde
+                    // es el del storyboard (pantalla 12).
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: esquema.primary, width: 6),
                   ),
                   child: QrImageView(
                     data: reserva.codigoQr,

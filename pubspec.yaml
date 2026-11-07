@@ -75,6 +75,10 @@ flutter:
   # el suyo a partir de .env.example.
   assets:
     - .env
+    # Foto de la pantalla de ingreso (storyboard, pantalla 01). Es la
+    # misma de las mancuernas del catálogo; créditos en
+    # docs/creditos-imagenes.md.
+    - assets/imagenes/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

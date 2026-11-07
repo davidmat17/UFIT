@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'app/pantalla_principal.dart';
 import 'core/datos/repositorios.dart';
 import 'core/rutas.dart';
 import 'core/supabase/supabase_config.dart';
@@ -55,14 +56,16 @@ class UfitApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.claro,
       darkTheme: AppTheme.oscuro,
+      // El storyboard de la Entrega 2B es oscuro: azul noche y verde.
+      themeMode: ThemeMode.dark,
       // La compuerta del RF1 decide si se ve el ingreso, el registro o
-      // el inicio. El inicio todavía es el menú de desarrollo; cuando
-      // exista la pantalla principal real, se cambia solo esta línea.
+      // la pantalla principal.
       home: errorDeArranque == null
-          ? CompuertaDeSesion(inicio: (_) => const PantallaInicio())
+          ? CompuertaDeSesion(inicio: (_) => const PantallaPrincipal())
           : PantallaErrorArranque(mensaje: errorDeArranque!),
       routes: <String, WidgetBuilder>{
         Rutas.diagnostico: (_) => const PantallaDiagnostico(),
+        Rutas.menuDesarrollo: (_) => const PantallaInicio(),
         for (final Requerimiento r in catalogoRequerimientos)
           r.ruta: r.construir,
       },
