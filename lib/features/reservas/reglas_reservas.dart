@@ -75,6 +75,9 @@ String nombreCortoDelDia(int diaDeLaSemana) => _diasCortos[diaDeLaSemana - 1];
 /// "lunes" para 1, "domingo" para 7 (como DateTime.weekday).
 String nombreLargoDelDia(int diaDeLaSemana) => _diasLargos[diaDeLaSemana - 1];
 
+/// "enero" para 1, "diciembre" para 12 (como DateTime.month).
+String nombreDelMes(int mes) => _meses[mes - 1];
+
 String capitalizar(String texto) =>
     texto.isEmpty ? texto : texto[0].toUpperCase() + texto.substring(1);
 
