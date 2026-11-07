@@ -54,7 +54,7 @@ class RepositorioGimnasioSupabase implements RepositorioGimnasio {
       // no hace falta una consulta por máquina.
       final consulta = _bd.from('maquinas').select(
           'id, zona_id, nombre, descripcion, cantidad, estado, imagen_url, '
-          'ejercicios(id, nombre, grupo_muscular, descripcion, instrucciones)');
+          'ejercicios(id, nombre, grupo_muscular, descripcion, instrucciones, activo)');
 
       final List<Map<String, dynamic>> filas = zonaId == null
           ? await consulta.order('nombre')
@@ -70,8 +70,11 @@ class RepositorioGimnasioSupabase implements RepositorioGimnasio {
     final List<dynamic> filasEjercicios =
         (f['ejercicios'] as List<dynamic>?) ?? const <dynamic>[];
 
+    // Los ejercicios dados de baja (RF13) no salen en el catálogo ni en
+    // las opciones para armar rutinas.
     final List<Ejercicio> ejercicios = filasEjercicios
         .cast<Map<String, dynamic>>()
+        .where((Map<String, dynamic> e) => e['activo'] != false)
         .map((Map<String, dynamic> e) => Ejercicio(
               id: e['id'] as int,
               nombre: e['nombre'] as String,
