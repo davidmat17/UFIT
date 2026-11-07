@@ -6,6 +6,7 @@
 library;
 
 import '../../core/modelos/administracion.dart';
+import '../../core/modelos/estadisticas.dart';
 
 // ---------------------------------------------------------------------
 // Fechas y horas (el módulo no importa los de reservas)
@@ -107,7 +108,7 @@ String? validarContenidoNormativa(String? valor) {
   return null;
 }
 
-/// CU13, turnos: la fecha final no puede ser anterior a la
+/// CU13 para turnos y CU12 3a: la fecha final no puede ser anterior a la
 /// inicial, ni el rango más largo que [maximoDias].
 String? validarRangoDeFechas(DateTime desde, DateTime hasta,
     {int maximoDias = 366}) {
@@ -182,4 +183,71 @@ String accionLegible(EntradaBitacora e) {
     'acceso_denegado' => 'Intento sin permiso: $que',
     _ => '${e.accion} $que',
   };
+}
+
+// ---------------------------------------------------------------------
+// Estadísticas (RF12)
+// ---------------------------------------------------------------------
+
+/// "42,5 %".
+String porcentaje(double? valor) {
+  if (valor == null) return '—';
+  final String t = valor.toStringAsFixed(1).replaceAll('.', ',');
+  return '${t.endsWith(',0') ? t.substring(0, t.length - 2) : t} %';
+}
+
+/// Las horas con más y con menos ocupación (CU12, paso 5). Solo cuentan
+/// las que tuvieron franjas. null si no hay ninguna.
+({UsoPorGrupo mayor, UsoPorGrupo menor})? extremosDeOcupacion(
+    List<UsoPorGrupo> porHora) {
+  final List<UsoPorGrupo> con =
+      porHora.where((UsoPorGrupo g) => g.franjas > 0 && g.ocupacion != null).toList();
+  if (con.isEmpty) return null;
+  UsoPorGrupo mayor = con.first;
+  UsoPorGrupo menor = con.first;
+  for (final UsoPorGrupo g in con) {
+    if (g.ocupacion! > mayor.ocupacion!) mayor = g;
+    if (g.ocupacion! < menor.ocupacion!) menor = g;
+  }
+  return (mayor: mayor, menor: menor);
+}
+
+/// El reporte en CSV, para copiar y pegar en una hoja de cálculo (CU12,
+/// 4a). Separado por punto y coma, que es lo que espera Excel en
+/// español.
+String reporteCsv(EstadisticasDeUso e) {
+  final ResumenDeUso r = e.resumen;
+  final StringBuffer b = StringBuffer()
+    ..writeln('Reporte UFIT;${fechaLarga(e.desde)};${fechaLarga(e.hasta)}')
+    ..writeln()
+    ..writeln('Indicador;Valor')
+    ..writeln('Franjas;${r.franjas}')
+    ..writeln('Reservas hechas;${r.reservas}')
+    ..writeln('Asistidas;${r.asistidas}')
+    ..writeln('No asistidas;${r.noAsistidas}')
+    ..writeln('Pendientes;${r.pendientes}')
+    ..writeln('Canceladas;${r.canceladas}')
+    ..writeln('Asistencia efectiva;${porcentaje(r.asistenciaEfectiva)}')
+    ..writeln('Ocupación promedio;${porcentaje(r.ocupacionPromedio)}')
+    ..writeln()
+    ..writeln('Hora;Franjas;Reservas;Asistidas;Ocupación');
+  for (final UsoPorGrupo g in e.porHora) {
+    b.writeln('${g.etiqueta};${g.franjas};${g.reservas};${g.asistidas};'
+        '${porcentaje(g.ocupacion)}');
+  }
+  b
+    ..writeln()
+    ..writeln('Día;Franjas;Reservas;Asistidas;Ocupación');
+  for (final UsoPorGrupo g in e.porDia) {
+    b.writeln('${g.etiqueta};${g.franjas};${g.reservas};${g.asistidas};'
+        '${porcentaje(g.ocupacion)}');
+  }
+  b
+    ..writeln()
+    ..writeln('Zona;Reservas;Asistidas;No asistidas;Canceladas');
+  for (final UsoPorGrupo g in e.porZona) {
+    b.writeln('${g.etiqueta};${g.reservas};${g.asistidas};${g.noAsistidas};'
+        '${g.canceladas}');
+  }
+  return b.toString();
 }

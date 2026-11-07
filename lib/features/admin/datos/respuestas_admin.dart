@@ -8,10 +8,18 @@ library;
 import 'dart:convert';
 
 import '../../../core/modelos/administracion.dart';
+import '../../../core/modelos/estadisticas.dart';
 import '../../../core/modelos/maquina.dart';
 import '../../../core/modelos/perfil.dart';
 
+const List<String> _dias = <String>[
+  'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo',
+];
+
 int _entero(Object? v) => v is num ? v.toInt() : int.tryParse('$v') ?? 0;
+
+double? _decimal(Object? v) =>
+    v is num ? v.toDouble() : (v is String ? double.tryParse(v) : null);
 
 String? _texto(Object? v) => v is String ? v : null;
 
@@ -27,6 +35,75 @@ DateTime? horaDeColombia(Object? instante) {
 List<Map<dynamic, dynamic>> _filas(Object? v) => v is List
     ? v.whereType<Map<dynamic, dynamic>>().toList()
     : const <Map<dynamic, dynamic>>[];
+
+/// La respuesta de estadisticas_uso(). Devuelve null si la base dijo que
+/// quien pregunta no es administrador (permitido = false).
+EstadisticasDeUso? estadisticasDesdeRespuesta(
+  Object? datos, {
+  required DateTime desde,
+  required DateTime hasta,
+}) {
+  Object? json = datos;
+  if (json is String) json = jsonDecode(json);
+  if (json is! Map || json['permitido'] != true) return null;
+
+  final Object? r = json['resumen'];
+  final Map<dynamic, dynamic> res = r is Map ? r : const <String, dynamic>{};
+
+  return EstadisticasDeUso(
+    desde: desde,
+    hasta: hasta,
+    resumen: ResumenDeUso(
+      franjas: _entero(res['franjas']),
+      reservas: _entero(res['reservas']),
+      asistidas: _entero(res['asistidas']),
+      noAsistidas: _entero(res['no_asistidas']),
+      pendientes: _entero(res['pendientes']),
+      canceladas: _entero(res['canceladas']),
+      ocupacionPromedio: _decimal(res['ocupacion_promedio']),
+    ),
+    porHora: <UsoPorGrupo>[
+      for (final Map<dynamic, dynamic> f in _filas(json['por_hora']))
+        UsoPorGrupo(
+          etiqueta: _texto(f['hora']) ?? '',
+          franjas: _entero(f['franjas']),
+          reservas: _entero(f['reservas']),
+          asistidas: _entero(f['asistidas']),
+          ocupacion: _decimal(f['ocupacion']),
+        ),
+    ],
+    porDia: <UsoPorGrupo>[
+      for (final Map<dynamic, dynamic> f in _filas(json['por_dia']))
+        UsoPorGrupo(
+          etiqueta: _entero(f['dia']) >= 1 && _entero(f['dia']) <= 7
+              ? _dias[_entero(f['dia']) - 1]
+              : '${f['dia']}',
+          franjas: _entero(f['franjas']),
+          reservas: _entero(f['reservas']),
+          asistidas: _entero(f['asistidas']),
+          ocupacion: _decimal(f['ocupacion']),
+        ),
+    ],
+    porZona: <UsoPorGrupo>[
+      for (final Map<dynamic, dynamic> f in _filas(json['por_zona']))
+        UsoPorGrupo(
+          etiqueta: _texto(f['zona']) ?? '',
+          reservas: _entero(f['reservas']),
+          asistidas: _entero(f['asistidas']),
+          noAsistidas: _entero(f['no_asistidas']),
+          canceladas: _entero(f['canceladas']),
+        ),
+    ],
+    inventario: <InventarioDeZona>[
+      for (final Map<dynamic, dynamic> f in _filas(json['maquinas']))
+        InventarioDeZona(
+          zona: _texto(f['zona']) ?? '',
+          disponibles: _entero(f['disponibles']),
+          fueraDeServicio: _entero(f['fuera_de_servicio']),
+        ),
+    ],
+  );
+}
 
 /// La respuesta de eliminar_maquina() o eliminar_ejercicio().
 RespuestaEliminacion eliminacionDesdeRespuesta(Object? datos) {

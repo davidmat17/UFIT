@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/datos/errores.dart';
 import '../../../core/datos/puertos/repositorio_admin.dart';
 import '../../../core/modelos/administracion.dart';
+import '../../../core/modelos/estadisticas.dart';
 import '../../../core/modelos/maquina.dart';
 import '../../../core/modelos/perfil.dart';
 import '../../../core/supabase/supabase_config.dart';
@@ -13,9 +14,9 @@ import 'respuestas_admin.dart';
 ///
 /// Crear y editar máquinas y ejercicios va directo a las tablas (las
 /// políticas *_admin solo se lo permiten al administrador). Borrar,
-/// publicar la normativa, asignar turnos y cambiar roles pasan por
-/// funciones de la base, que revisan el rol y dejan la bitácora
-/// (migración 016).
+/// publicar la normativa, asignar turnos, cambiar roles y calcular las
+/// estadísticas pasan por funciones de la base, que revisan el rol y
+/// dejan la bitácora (migraciones 016 y 017).
 class RepositorioAdminSupabase implements RepositorioAdmin {
   const RepositorioAdminSupabase();
 
@@ -25,6 +26,37 @@ class RepositorioAdminSupabase implements RepositorioAdmin {
     TipoDeError.sinPermiso,
     'Esta sección es solo para el administrador del gimnasio.',
   );
+
+  // -------------------------------------------------------------------
+  // RF12
+  // -------------------------------------------------------------------
+
+  @override
+  Future<EstadisticasDeUso> estadisticas({
+    required DateTime desde,
+    required DateTime hasta,
+    int? zonaId,
+    String? hora,
+  }) async {
+    Object? datos;
+    try {
+      datos = await _bd.rpc(
+        'estadisticas_uso',
+        params: <String, dynamic>{
+          'p_desde': fechaParaBase(desde),
+          'p_hasta': fechaParaBase(hasta),
+          'p_zona_id': zonaId,
+          'p_hora': hora,
+        },
+      );
+    } catch (e) {
+      throw traducirError(e, 'No se pudieron calcular las estadísticas');
+    }
+    final EstadisticasDeUso? est =
+        estadisticasDesdeRespuesta(datos, desde: desde, hasta: hasta);
+    if (est == null) throw _sinPermiso;
+    return est;
+  }
 
   // -------------------------------------------------------------------
   // RF13: catálogo
