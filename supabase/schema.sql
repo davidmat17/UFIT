@@ -5,6 +5,10 @@
 -- Congelado el 21 de septiembre de 2026. Cambiar algo de aquí exige
 -- acuerdo de David y Sergio (ver docs/modelo-de-datos.md).
 --
+-- Desde la sección 13, al final, van las migraciones 015 en adelante
+-- tal cual: después de los datos semilla, para que la carga inicial no
+-- cuente como cambios.
+--
 -- Para aplicarlo: Supabase → SQL Editor → pegar este archivo → Run.
 -- Es idempotente de arriba hacia abajo si se corre sobre una base vacía.
 -- =====================================================================
@@ -175,7 +179,7 @@ create index reservas_por_franja on public.reservas (franja_id);
 create index reservas_por_perfil on public.reservas (perfil_id, fecha desc);
 
 comment on column public.reservas.codigo_qr is
-  'Se genera al crear la reserva y es lo que codifica el QR del RF4. Vence al terminar la franja: la validación la hace registrar_asistencia().';
+  'Se genera al crear la reserva y es lo que codifica el QR del RF4. Vence al terminar la franja: la validación la hace validar_ingreso() (sección 13).';
 
 create table public.asistencias (
   id              bigint generated always as identity primary key,
@@ -497,50 +501,8 @@ create trigger asignaciones_solo_instructores
   before insert or update of instructor_id on public.asignaciones_instructor
   for each row execute function public.validar_asignacion_instructor();
 
--- Registra el ingreso a partir del QR (RF4). Devuelve la reserva o falla
--- con un mensaje que la app muestra tal cual.
-create or replace function public.registrar_asistencia(qr uuid)
-returns public.reservas
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  reserva public.reservas;
-  franja  public.franjas;
-  -- La base corre en UTC y las franjas están en hora de Bucaramanga.
-  -- Sin esta conversión, la validación se corre cinco horas.
-  ahora   timestamp := timezone('America/Bogota', now());
-begin
-  select * into reserva from public.reservas where codigo_qr = qr;
-  if reserva is null then
-    raise exception 'Código no válido';
-  end if;
-
-  select * into franja from public.franjas where id = reserva.franja_id;
-
-  if reserva.estado = 'cancelada' then
-    raise exception 'La reserva fue cancelada';
-  end if;
-
-  if ahora < (franja.fecha + franja.hora_inicio) - interval '15 minutes'
-     or ahora > (franja.fecha + franja.hora_fin) then
-    raise exception 'El código no corresponde a la franja actual';
-  end if;
-
-  if exists (select 1 from public.asistencias where reserva_id = reserva.id) then
-    raise exception 'El ingreso ya fue registrado';
-  end if;
-
-  insert into public.asistencias (reserva_id, registrada_por)
-  values (reserva.id, auth.uid());
-
-  update public.reservas set estado = 'asistida' where id = reserva.id
-  returning * into reserva;
-
-  return reserva;
-end;
-$$;
+-- El registro de ingresos con QR (RF4) está en la sección 13: lo hacen
+-- validar_ingreso() y validar_ingreso_manual(), solo para el personal.
 
 -- Qué devuelve, una fila por franja pedida (sin repetidas):
 --
@@ -559,7 +521,7 @@ $$;
 --
 -- Lo que no depende de una franja en concreto (sin sesión, cuenta
 -- inactiva, zona inválida, lista vacía) no devuelve filas: falla con un
--- mensaje que la app muestra tal cual, como registrar_asistencia().
+-- mensaje que la app muestra tal cual.
 create or replace function public.reservar_cupos(
   p_franjas  bigint[],
   p_zona_id  smallint
@@ -1415,3 +1377,266 @@ insert into public.normativa (titulo, contenido, version, vigente) values
 
 -- Franjas de las próximas cuatro semanas.
 select public.generar_franjas(public.hoy_local(), public.hoy_local() + 28);
+
+
+-- =====================================================================
+-- 13. Asistencia con QR  (RF4, migración 015)
+-- =====================================================================
+-- ---------------------------------------------------------------------
+-- 1. Cómo se validó cada ingreso
+-- ---------------------------------------------------------------------
+
+alter table public.asistencias
+  add column if not exists metodo text not null default 'qr';
+
+alter table public.asistencias
+  drop constraint if exists asistencias_metodo_valido;
+alter table public.asistencias
+  add constraint asistencias_metodo_valido check (metodo in ('qr', 'manual'));
+
+comment on column public.asistencias.metodo is
+  'RF4: qr si el personal escaneó el código; manual si buscó la reserva por documento (CU04, 3a).';
+
+
+-- ---------------------------------------------------------------------
+-- 2. Quién es personal del gimnasio
+-- ---------------------------------------------------------------------
+
+create or replace function public.es_personal()
+returns boolean
+language sql
+stable
+as $$
+  select coalesce(public.rol_actual() in ('instructor', 'administrador'), false);
+$$;
+
+comment on function public.es_personal() is
+  'true si quien llama es instructor o administrador: puede validar ingresos (RF4).';
+
+
+-- ---------------------------------------------------------------------
+-- 3. La validación, en un solo sitio
+--    No se le da permiso a nadie: la usan las dos funciones públicas de
+--    abajo, que primero comprueban que quien llama sea personal.
+-- ---------------------------------------------------------------------
+
+drop function if exists public.registrar_asistencia(uuid);
+
+create or replace function public.validar_reserva(
+  p_reserva_id  bigint,
+  p_metodo      text
+)
+returns table (
+  resultado      text,
+  reserva        jsonb,
+  persona        text,
+  documento      text,
+  hora_inicio    time,
+  hora_fin       time,
+  zona           text,
+  registrada_en  timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r        public.reservas;
+  f        public.franjas;
+  a        public.asistencias;
+  p        public.perfiles;
+  z        public.zonas;
+  -- La base corre en UTC y las franjas están en hora de Bucaramanga.
+  ahora    timestamp := timezone('America/Bogota', now());
+  res      text;
+begin
+  -- for update: si dos porteros escanean el mismo código a la vez, el
+  -- segundo espera y luego ve el ingreso del primero.
+  select * into r from public.reservas where id = p_reserva_id for update;
+  if not found then
+    return query select 'inexistente'::text, null::jsonb, null::text,
+      null::text, null::time, null::time, null::text, null::timestamptz;
+    return;
+  end if;
+
+  select * into f from public.franjas where id = r.franja_id;
+  select * into p from public.perfiles where id = r.perfil_id;
+  select * into z from public.zonas where id = r.zona_id;
+  select * into a from public.asistencias where reserva_id = r.id;
+
+  if a.id is not null then
+    res := 'ya_validado';
+  elsif r.estado = 'cancelada' then
+    res := 'cancelada';
+  elsif ahora < (f.fecha + f.hora_inicio) - interval '15 minutes' then
+    res := 'temprano';
+  elsif ahora > (f.fecha + f.hora_fin) then
+    res := 'vencido';
+  else
+    insert into public.asistencias (reserva_id, registrada_por, metodo)
+    values (r.id, auth.uid(), p_metodo)
+    returning * into a;
+
+    update public.reservas set estado = 'asistida' where id = r.id
+    returning * into r;
+
+    res := 'valido';
+  end if;
+
+  return query select
+    res,
+    to_jsonb(r),
+    p.nombre || ' ' || p.apellido,
+    p.documento,
+    f.hora_inicio,
+    f.hora_fin,
+    z.nombre,
+    a.registrada_en;
+end;
+$$;
+
+revoke all on function public.validar_reserva(bigint, text) from public, anon, authenticated;
+
+
+-- ---------------------------------------------------------------------
+-- 4. Escanear el QR (CU04, flujo principal)
+-- ---------------------------------------------------------------------
+
+create or replace function public.validar_ingreso(p_codigo text)
+returns table (
+  resultado      text,
+  reserva        jsonb,
+  persona        text,
+  documento      text,
+  hora_inicio    time,
+  hora_fin       time,
+  zona           text,
+  registrada_en  timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_codigo   uuid;
+  v_reserva  bigint;
+begin
+  if not public.es_personal() then
+    raise exception 'Solo el personal del gimnasio puede validar ingresos.'
+      using errcode = '42501';
+  end if;
+
+  -- Un QR que no es un código de UFIT (otra app, un enlace) no es un
+  -- error del sistema: es un código inexistente.
+  begin
+    v_codigo := btrim(p_codigo)::uuid;
+  exception when invalid_text_representation then
+    v_codigo := null;
+  end;
+
+  select id into v_reserva from public.reservas where codigo_qr = v_codigo;
+
+  return query select * from public.validar_reserva(v_reserva, 'qr');
+end;
+$$;
+
+comment on function public.validar_ingreso(text) is
+  'RF4: valida el código del QR de una reserva y registra el ingreso. Solo instructor o administrador.';
+
+revoke all on function public.validar_ingreso(text) from public, anon;
+grant execute on function public.validar_ingreso(text) to authenticated;
+
+
+-- ---------------------------------------------------------------------
+-- 5. Validación manual por documento (CU04, flujo 3a)
+-- ---------------------------------------------------------------------
+
+create or replace function public.buscar_reservas_de_hoy(p_documento text)
+returns table (
+  reserva_id    bigint,
+  persona       text,
+  documento     text,
+  hora_inicio   time,
+  hora_fin      time,
+  zona          text,
+  estado        public.estado_reserva,
+  validada      boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if not public.es_personal() then
+    raise exception 'Solo el personal del gimnasio puede validar ingresos.'
+      using errcode = '42501';
+  end if;
+
+  return query
+    select r.id,
+           p.nombre || ' ' || p.apellido,
+           p.documento,
+           f.hora_inicio,
+           f.hora_fin,
+           z.nombre,
+           r.estado,
+           exists (select 1 from public.asistencias a where a.reserva_id = r.id)
+      from public.perfiles p
+      join public.reservas r on r.perfil_id = p.id
+      join public.franjas f on f.id = r.franja_id
+      join public.zonas z on z.id = r.zona_id
+     where p.documento = btrim(p_documento)
+       and r.fecha = public.hoy_local()
+       and r.estado <> 'cancelada'
+     order by f.hora_inicio;
+end;
+$$;
+
+comment on function public.buscar_reservas_de_hoy(text) is
+  'RF4, CU04 3a: las reservas de hoy de una persona, buscada por documento. Solo instructor o administrador.';
+
+revoke all on function public.buscar_reservas_de_hoy(text) from public, anon;
+grant execute on function public.buscar_reservas_de_hoy(text) to authenticated;
+
+create or replace function public.validar_ingreso_manual(p_reserva_id bigint)
+returns table (
+  resultado      text,
+  reserva        jsonb,
+  persona        text,
+  documento      text,
+  hora_inicio    time,
+  hora_fin       time,
+  zona           text,
+  registrada_en  timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.es_personal() then
+    raise exception 'Solo el personal del gimnasio puede validar ingresos.'
+      using errcode = '42501';
+  end if;
+
+  return query select * from public.validar_reserva(p_reserva_id, 'manual');
+end;
+$$;
+
+comment on function public.validar_ingreso_manual(bigint) is
+  'RF4, CU04 3a: valida el ingreso de una reserva buscada por documento. Mismas reglas que el QR.';
+
+revoke all on function public.validar_ingreso_manual(bigint) from public, anon;
+grant execute on function public.validar_ingreso_manual(bigint) to authenticated;
+
+
+-- ---------------------------------------------------------------------
+-- 6. Asistencias: nadie las escribe directo
+--    Solo las funciones de arriba registran ingresos.
+-- ---------------------------------------------------------------------
+
+revoke insert, update, delete on public.asistencias from anon, authenticated;
+
+comment on column public.reservas.codigo_qr is
+  'Se genera al crear la reserva y es lo que codifica el QR del RF4. Vence al terminar la franja: la validación la hace validar_ingreso() (sección 13).';
