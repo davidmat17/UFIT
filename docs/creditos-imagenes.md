@@ -25,3 +25,5 @@ Cuando exista el RF13, el administrador podrá reemplazar todas por fotos reales
 | Máquina de aperturas | `maquina-de-aperturas.jpg` | [Pec deck Fly.jpg](https://commons.wikimedia.org/wiki/File:Pec_deck_Fly.jpg) | Aliva Sahoo | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
 | Sentadilla hack | `sentadilla-hack.jpg` | [David Jobson & Ziggy Chima; machine hack squat.jpg](https://commons.wikimedia.org/wiki/File:David_Jobson_%26_Ziggy_Chima;_machine_hack_squat.jpg) | brett jordan | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0) |
 | Bicicleta reclinada | `bicicleta-reclinada.jpg` | Foto de catálogo de la bicicleta Etenon VR9 | Etenon (fabricante) | Sin licencia libre; solo referencia |
+
+La foto de las mancuernas también es el fondo de la pantalla de ingreso (`assets/imagenes/ingreso.jpg`).
