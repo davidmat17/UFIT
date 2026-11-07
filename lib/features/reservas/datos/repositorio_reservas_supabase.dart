@@ -6,6 +6,7 @@ import '../../../core/modelos/franja_disponible.dart';
 import '../../../core/modelos/reserva.dart';
 import '../../../core/modelos/resultado_cancelacion.dart';
 import '../../../core/modelos/resultado_reserva.dart';
+import '../../../core/modelos/validacion_ingreso.dart';
 import '../../../core/supabase/supabase_config.dart';
 import '../../../core/supabase/traductor_errores.dart';
 import '../reglas_reservas.dart' show fechaIso;
@@ -13,14 +14,10 @@ import 'respuestas_de_reservas.dart';
 
 /// Adaptador del puerto de reservas contra Supabase (RF2, RF3, RF4, RF9).
 ///
-/// Aquí están completos el RF2 (la disponibilidad, reservar una franja y
-/// reservar varias a la vez) y el RF3 (cancelar). El registro de
-/// asistencia (RF4) y el historial (RF9) se completan al trabajar cada
-/// requerimiento.
-///
 /// Las reservas no se insertan ni se modifican desde la app: pasan por
-/// las funciones reservar_cupos() y cancelar_reserva() de la base, que
-/// garantizan el aforo y el plazo para cancelar (supabase/schema.sql).
+/// las funciones reservar_cupos(), cancelar_reserva() y validar_ingreso()
+/// de la base, que garantizan el aforo, el plazo para cancelar y que el
+/// QR sirva una sola vez y solo en su franja (supabase/schema.sql).
 class RepositorioReservasSupabase implements RepositorioReservas {
   const RepositorioReservasSupabase();
 
@@ -150,7 +147,7 @@ class RepositorioReservasSupabase implements RepositorioReservas {
       var consulta = _bd
           .from('reservas')
           .select('id, perfil_id, franja_id, fecha, zona_id, estado, codigo_qr, '
-              'franjas(hora_inicio, hora_fin)')
+              'franjas(hora_inicio, hora_fin), asistencias(registrada_en)')
           .eq('perfil_id', usuario.id);
       if (desde != null) consulta = consulta.gte('fecha', fechaIso(desde));
       if (hasta != null) consulta = consulta.lte('fecha', fechaIso(hasta));
@@ -165,7 +162,44 @@ class RepositorioReservasSupabase implements RepositorioReservas {
   }
 
   @override
-  Future<Reserva> registrarAsistencia(String codigoQr) {
-    throw UnimplementedError('Pendiente: RF4, responsable David');
+  Future<RespuestaValidacion> validarIngreso(String codigo) async {
+    try {
+      final Object? datos = await _bd.rpc(
+        'validar_ingreso',
+        params: <String, dynamic>{'p_codigo': codigo},
+      );
+      return validacionDesdeRespuesta(datos);
+    } catch (e) {
+      // Quien no es personal del gimnasio llega aquí con el código 42501,
+      // que traducirError convierte en "sin permiso". Reintentar es
+      // seguro: un código ya usado responde ya_validado.
+      throw traducirError(e, 'No se pudo validar el código');
+    }
+  }
+
+  @override
+  Future<List<ReservaDeHoy>> reservasDeHoyPorDocumento(String documento) async {
+    try {
+      final Object? datos = await _bd.rpc(
+        'buscar_reservas_de_hoy',
+        params: <String, dynamic>{'p_documento': documento.trim()},
+      );
+      return reservasDeHoyDesdeRespuesta(datos);
+    } catch (e) {
+      throw traducirError(e, 'No se pudo buscar la reserva');
+    }
+  }
+
+  @override
+  Future<RespuestaValidacion> validarIngresoManual(int reservaId) async {
+    try {
+      final Object? datos = await _bd.rpc(
+        'validar_ingreso_manual',
+        params: <String, dynamic>{'p_reserva_id': reservaId},
+      );
+      return validacionDesdeRespuesta(datos);
+    } catch (e) {
+      throw traducirError(e, 'No se pudo validar el ingreso');
+    }
   }
 }

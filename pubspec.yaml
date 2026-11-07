@@ -42,6 +42,11 @@ dependencies:
   # flujo 2a): sin internet se sigue pudiendo consultar.
   shared_preferences: ^2.3.2
   flutter_dotenv: ^6.0.1
+  # Dibuja el QR de cada reserva (RF4).
+  qr_flutter: ^4.1.0
+  # Cámara del personal para leer el QR en la entrada (RF4). Trae su
+  # propio permiso de cámara para Android.
+  mobile_scanner: ^7.0.0
 
 dev_dependencies:
   flutter_test:

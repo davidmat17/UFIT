@@ -13,6 +13,7 @@ import 'package:ufit/core/modelos/normativa.dart';
 import 'package:ufit/core/modelos/reserva.dart';
 import 'package:ufit/core/modelos/resultado_cancelacion.dart';
 import 'package:ufit/core/modelos/resultado_reserva.dart';
+import 'package:ufit/core/modelos/validacion_ingreso.dart';
 import 'package:ufit/core/modelos/zona.dart';
 import 'package:ufit/core/rutas.dart';
 import 'package:ufit/core/tema/app_theme.dart';
@@ -283,7 +284,15 @@ class _ReservasFalsas implements RepositorioReservas {
   Future<int> horasAntelacionCancelar() async => horasAntelacionPorDefecto;
 
   @override
-  Future<Reserva> registrarAsistencia(String codigoQr) =>
+  Future<RespuestaValidacion> validarIngreso(String codigo) =>
+      throw UnimplementedError();
+
+  @override
+  Future<List<ReservaDeHoy>> reservasDeHoyPorDocumento(String documento) =>
+      throw UnimplementedError();
+
+  @override
+  Future<RespuestaValidacion> validarIngresoManual(int reservaId) =>
       throw UnimplementedError();
 }
 

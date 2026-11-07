@@ -20,6 +20,7 @@ class Reserva {
     required this.codigoQr,
     this.horaInicio,
     this.horaFin,
+    this.ingresoEn,
   });
 
   final int id;
@@ -37,6 +38,11 @@ class Reserva {
   /// RF3 la necesita para saber hasta cuándo se puede cancelar.
   final String? horaInicio;
   final String? horaFin;
+
+  /// Cuándo se registró el ingreso con el QR (RF4), en hora de Colombia.
+  /// Solo viene cuando la consulta trae la asistencia junto con la
+  /// reserva (misReservas); null si no hubo ingreso.
+  final DateTime? ingresoEn;
 
   bool get estaViva =>
       estado == EstadoReserva.confirmada || estado == EstadoReserva.asistida;
