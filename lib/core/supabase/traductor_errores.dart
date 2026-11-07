@@ -59,6 +59,20 @@ ErrorDeDatos traducirError(Object e, String mensajeGeneral) {
       );
     }
 
+    // Un campo del catálogo vacío, muy largo o con un formato inválido
+    // (RF13, CU13 5c). Los formularios lo revisan antes; esto es por si
+    // acaso.
+    if (e.code == '23514' &&
+        (e.message.contains('maquinas') || e.message.contains('ejercicios'))) {
+      return ErrorDeDatos(
+        TipoDeError.reglaDeNegocio,
+        e.message.contains('imagen_url')
+            ? 'La dirección de la imagen debe empezar por https://.'
+            : 'Algún campo está vacío, es muy largo o no es válido. Revísalo.',
+        causa: e,
+      );
+    }
+
     return ErrorDeDatos(TipoDeError.reglaDeNegocio, e.message, causa: e);
   }
 
@@ -75,6 +89,12 @@ String _mensajeDeDuplicado(String detalle) {
   }
   if (detalle.contains('correo')) {
     return 'Ese correo ya tiene una cuenta en UFIT.';
+  }
+  if (detalle.contains('maquinas_zona_id_nombre')) {
+    return 'Ya existe una máquina con ese nombre en esa zona.';
+  }
+  if (detalle.contains('ejercicios_nombre')) {
+    return 'Ya existe un ejercicio con ese nombre.';
   }
   if (detalle.contains('perfiles_pkey')) {
     return 'Tu cuenta ya estaba registrada.';

@@ -3,6 +3,22 @@ import 'ejercicio.dart';
 /// Estado de una máquina del gimnasio.
 enum EstadoMaquina { disponible, mantenimiento, retirada }
 
+/// Como lo guarda la base.
+String estadoMaquinaATexto(EstadoMaquina e) => switch (e) {
+      EstadoMaquina.disponible => 'disponible',
+      EstadoMaquina.mantenimiento => 'mantenimiento',
+      EstadoMaquina.retirada => 'retirada',
+    };
+
+/// Para mostrar. Son los mismos nombres del catálogo (RF5): una máquina
+/// en mantenimiento sale como "Fuera de servicio"; una retirada está dada
+/// de baja y el catálogo ya no la muestra.
+String nombreDeEstadoMaquina(EstadoMaquina e) => switch (e) {
+      EstadoMaquina.disponible => 'Disponible',
+      EstadoMaquina.mantenimiento => 'Fuera de servicio',
+      EstadoMaquina.retirada => 'Dada de baja',
+    };
+
 EstadoMaquina estadoMaquinaDesdeTexto(String? valor) => switch (valor) {
       'mantenimiento' => EstadoMaquina.mantenimiento,
       'retirada' => EstadoMaquina.retirada,
