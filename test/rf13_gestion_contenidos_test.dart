@@ -7,6 +7,7 @@ import 'package:ufit/core/datos/puertos/repositorio_gimnasio.dart';
 import 'package:ufit/core/datos/puertos/repositorio_perfiles.dart';
 import 'package:ufit/core/datos/repositorios.dart';
 import 'package:ufit/core/modelos/administracion.dart';
+import 'package:ufit/core/modelos/estadisticas.dart';
 import 'package:ufit/core/modelos/franja_con_instructor.dart';
 import 'package:ufit/core/modelos/maquina.dart';
 import 'package:ufit/core/modelos/medicion.dart';
@@ -48,6 +49,16 @@ const String _bitacora =
 // ---------------------------------------------------------------------
 
 class _AdminFalso implements RepositorioAdmin {
+  // RF12: no se usa en estas pruebas.
+  @override
+  Future<EstadisticasDeUso> estadisticas({
+    required DateTime desde,
+    required DateTime hasta,
+    int? zonaId,
+    String? hora,
+  }) =>
+      throw UnimplementedError();
+
 
   @override
   Future<List<Maquina>> maquinas() async => const <Maquina>[

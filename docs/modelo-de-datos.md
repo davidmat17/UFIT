@@ -18,7 +18,7 @@ Las cinco que definen la forma del modelo, con lo que implican.
 
 **Las franjas existen como filas, generadas por adelantado.** Una fila por cada hora de cada día, de 6 a. m. a 9 p. m. Ocupa más espacio que un horario plantilla, pero hace que el calendario semanal sea una sola consulta y permite que el administrador cierre una franja puntual sin tocar el resto.
 
-**El QR se genera por reserva y vence con la franja.** Cada reserva nace con un `codigo_qr` único. La función `registrar_asistencia()` valida que el código exista, que la reserva no esté cancelada, que la franja esté ocurriendo y que el ingreso no se haya registrado antes.
+**El QR se genera por reserva y vence con la franja.** Cada reserva nace con un `codigo_qr` único. La función `validar_ingreso()` (migración 015) valida que el código exista, que la reserva no esté cancelada, que la franja esté ocurriendo (desde 15 minutos antes hasta que termina) y que el ingreso no se haya registrado antes. Solo la puede llamar el personal del gimnasio (instructor o administrador).
 
 **Las medidas antropométricas se guardan con historial.** Cada medición es una fila con su fecha; la app muestra la última y la evolución del peso. Una medición no se edita: se registra otra o se borra la equivocada. Cambió el 1 de octubre de 2026 (migración 002); antes era un solo registro que se sobrescribía.
 
@@ -33,6 +33,7 @@ erDiagram
     PERFILES ||--o{ RUTINAS : arma
     PERFILES ||--o{ ASIGNACIONES : cubre
     PERFILES ||--o{ NORMATIVA : publica
+    PERFILES ||--o{ BITACORA : registra
 
     FRANJAS ||--o{ RESERVAS : recibe
     FRANJAS ||--o| ASIGNACIONES : tiene
@@ -83,6 +84,7 @@ erDiagram
         bigint reserva_id FK
         timestamptz registrada_en
         uuid registrada_por FK
+        text metodo
     }
     ZONAS {
         smallint id PK
@@ -102,6 +104,7 @@ erDiagram
         text nombre UK
         text grupo_muscular
         text descripcion
+        boolean activo
     }
     EJERCICIO_MAQUINA {
         bigint ejercicio_id PK
@@ -136,6 +139,15 @@ erDiagram
         boolean id PK
         smallint horas_antelacion_cancelar
     }
+    BITACORA {
+        bigint id PK
+        uuid perfil_id FK
+        text accion
+        text entidad
+        text entidad_id
+        jsonb detalle
+        timestamptz creada_en
+    }
     NORMATIVA {
         bigint id PK
         text titulo
@@ -154,7 +166,7 @@ erDiagram
 
 ---
 
-## Las catorce tablas
+## Las quince tablas
 
 ### `perfiles` — personas
 Extiende `auth.users`, la tabla de cuentas que administra Supabase. Comparte su `id`, así que hay exactamente un perfil por cuenta; el correo y la contraseña los guarda Supabase, no nosotros.
@@ -189,6 +201,14 @@ Las reservas se crean solo con `reservar_cupos(franjas, zona)` (migración 010).
 ### `asistencias` — ingreso real (RF4)
 Una fila por ingreso efectivo, atada a una reserva. La diferencia entre reservas y asistencias es exactamente lo que el RF12 llama "asistencia efectiva frente a las reservas realizadas".
 
+Desde la migración 015 nadie escribe aquí directo. El personal valida con:
+- `validar_ingreso(codigo)`, al escanear el QR;
+- `buscar_reservas_de_hoy(documento)` y `validar_ingreso_manual(reserva)`, cuando la persona no puede mostrar el código (CU04, 3a).
+
+Las tres revisan que quien llama sea instructor o administrador, y las dos de validar responden `valido`, `ya_validado`, `temprano`, `vencido`, `cancelada` o `inexistente`. La columna `metodo` dice si el ingreso fue por `qr` o `manual`. Se borró la función `registrar_asistencia()` del esquema original, que podía llamar cualquier usuario.
+
+Una reserva confirmada cuya franja ya terminó sin fila aquí cuenta como **no asistida** en el historial (RF9) y en las estadísticas (RF12); no hace falta un proceso que la marque.
+
 ### `rutinas` y `rutina_ejercicios` — entrenamiento (RF11)
 Máximo 3 rutinas por usuario. Cada línea de la rutina tiene ejercicio, máquina, días y lo que se hace: repeticiones, minutos o ambos, con series opcionales. Los días son un arreglo de números: `{1,3,5}` es lunes, miércoles y viernes.
 
@@ -215,7 +235,20 @@ El administrador asigna un instructor a una franja; el usuario consulta esa agen
 Desde la migración 011 cada franja tiene como mucho un instructor (HU16) y solo se puede asignar a alguien con rol `instructor` y cuenta activa. Como un usuario no puede leer el perfil de otra persona, el RF7 no consulta `perfiles`: llama a `agenda_instructores(desde, hasta)`, que devuelve las franjas del rango con nombre y especialidad del instructor (nunca su correo, documento ni teléfono), o nada si no tiene. Si el instructor se desactiva o deja de serlo, su franja aparece sin instructor.
 
 ### `configuracion` — parámetros del gimnasio (RF3, RF13)
-Una sola fila (la llave primaria es un `boolean` que solo acepta `true`). Por ahora guarda `horas_antelacion_cancelar`, entre 0 y 24, con 3 por defecto: el RF3 dice que ese plazo lo configura el administrador. La leen todos los que iniciaron sesión, porque la app explica el plazo; solo el administrador la cambia, y la pantalla para hacerlo llega con el RF13. Se agregó en la migración 012.
+Una sola fila (la llave primaria es un `boolean` que solo acepta `true`). Por ahora guarda `horas_antelacion_cancelar`, entre 0 y 24, con 3 por defecto: el RF3 dice que ese plazo lo configura el administrador. La leen todos los que iniciaron sesión, porque la app explica el plazo; solo el administrador la cambia, desde la pestaña Normativa del RF13. Se agregó en la migración 012.
+
+### `bitacora` — auditoría (RF13)
+Agregada en la migración 016. Una fila por cambio: quién (`perfil_id`), qué (`accion`: crear, editar, eliminar, publicar, asignar_turno, quitar_turno, acceso_denegado), sobre qué (`entidad`, `entidad_id`), el detalle en JSON (en las ediciones, solo los campos que cambiaron, con su valor antes y después) y cuándo (`creada_en`).
+
+La escriben disparadores sobre `maquinas`, `ejercicios`, `ejercicio_maquina`, `configuracion` y los cambios de rol, estado o especialidad en `perfiles`, y las funciones `publicar_normativa()` y `asignar_turno()`. Nadie la puede editar ni borrar desde la app; solo el administrador la lee.
+
+### Funciones del RF13 y el RF12 (migraciones 016 y 017)
+- `eliminar_maquina(id)` y `eliminar_ejercicio(id)`: si alguna rutina lo usa, responden `en_uso` con cuántas rutinas, y no borran (CU13, 5a). El DELETE directo está revocado.
+- `ejercicios.activo`: dar de baja un ejercicio sin borrarlo. El catálogo (RF5) ya no lo muestra; las rutinas que lo tienen lo conservan.
+- `publicar_normativa(titulo, contenido, version_base)`: crea la versión siguiente y deja la anterior en el histórico. Si la `version_base` ya no es la última, responde `version_cambio` y no sobrescribe (CU13, 5b).
+- `asignar_turno(instructor, dias, hora_desde, hora_hasta, desde, hasta)`: asigna (o quita, con instructor nulo) en todas las franjas de esos días y horas. Máximo 62 días por llamada.
+- `actualizar_persona(perfil, rol, activo, especialidad)`: el administrador no se puede quitar su propio rol ni desactivarse.
+- `estadisticas_uso(desde, hasta, zona, hora)`: el JSON del panel del RF12. Si la llama alguien que no es administrador responde `{"permitido": false}` y deja el intento en la bitácora (CU12, 1a).
 
 ---
 
@@ -240,7 +273,10 @@ No están solo en el código de la app. Están en la base, así que se cumplen a
 | Se cancela con la antelación mínima configurada, y nunca una reserva con ingreso registrado | Función `cancelar_reserva()`. No hay política de UPDATE en `reservas` |
 | Una sola fila de configuración | Llave primaria `boolean` con `check (id)` |
 | Nadie ve reservas, rutinas ni medidas de otro | Políticas de seguridad a nivel de fila (RLS) |
-| El QR solo sirve en su franja y una sola vez | Función `registrar_asistencia()` |
+| El QR solo sirve en su franja y una sola vez, y solo lo valida el personal | Funciones `validar_ingreso()` y `validar_ingreso_manual()`; asistencias sin permisos de escritura |
+| No se borra una máquina o un ejercicio que usan rutinas | Funciones `eliminar_maquina()` y `eliminar_ejercicio()`; DELETE revocado |
+| La normativa no se sobrescribe si otro administrador publicó antes | Función `publicar_normativa()` con bloqueo y versión base |
+| Todo cambio administrativo queda registrado | Tabla `bitacora` con disparadores; sin permisos de escritura |
 | Máximo un instructor por franja (HU16) | Restricción `asignaciones_un_instructor_por_franja` sobre `franja_id` |
 | Solo se asigna a instructores activos | Disparador `asignaciones_solo_instructores` |
 

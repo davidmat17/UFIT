@@ -1,15 +1,26 @@
 import '../../modelos/administracion.dart';
+import '../../modelos/estadisticas.dart';
 import '../../modelos/maquina.dart';
 import '../../modelos/perfil.dart';
 
-/// Puerto de administración (RF12, RF13). Por ahora, lo del RF13; el
-/// RF12 agrega aquí sus estadísticas.
+/// Puerto de administración (RF12, RF13).
 ///
 /// Todo lo de aquí es solo para el administrador. La barrera real está en
 /// la base (políticas de fila y funciones que revisan el rol): si alguien
 /// sin el rol llama estos métodos, fallan con un ErrorDeDatos de tipo
 /// sinPermiso aunque la app no hubiera ocultado la pantalla.
 abstract class RepositorioAdmin {
+  // --- RF12: estadísticas ---
+
+  /// Ocupación, asistencia efectiva y uso por zona entre [desde] y
+  /// [hasta], opcionalmente solo de una zona o de una hora ("06:00").
+  Future<EstadisticasDeUso> estadisticas({
+    required DateTime desde,
+    required DateTime hasta,
+    int? zonaId,
+    String? hora,
+  });
+
   // --- RF13: catálogo ---
 
   /// Todas las máquinas, también las dadas de baja.

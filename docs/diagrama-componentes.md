@@ -39,10 +39,10 @@ flowchart TB
     subgraph nube["Supabase · nube"]
         auth["Autenticación<br/>registro, sesión, tokens"]
         api["API de datos<br/>consulta y escritura de tablas"]
-        rpc["Funciones del servidor<br/>registrar_asistencia<br/>generar_franjas"]
+        rpc["Funciones del servidor<br/>validar_ingreso · estadisticas_uso<br/>publicar_normativa · asignar_turno"]
 
         subgraph bd["PostgreSQL"]
-            tablas["14 tablas<br/>+ vista_disponibilidad"]
+            tablas["15 tablas<br/>+ vista_disponibilidad"]
             rls["Políticas de seguridad<br/>por fila (RLS)"]
         end
     end
@@ -114,11 +114,11 @@ Tres servicios sobre una sola base de datos:
 
 - **Autenticación** — registro, inicio de sesión y emisión de los tokens que identifican a cada usuario en las siguientes peticiones. Es lo que da soporte al RF1.
 - **API de datos** — traduce las peticiones de la app en consultas SQL. La app nunca escribe SQL: pide "las franjas de esta semana con cupos disponibles" y el servicio resuelve.
-- **Funciones del servidor** — la lógica que no puede vivir en la app porque hay que confiar en ella. `registrar_asistencia()` valida el QR contra la franja y el estado de la reserva; `generar_franjas()` crea el horario.
+- **Funciones del servidor** — la lógica que no puede vivir en la app porque hay que confiar en ella. `validar_ingreso()` valida el QR contra la franja y el estado de la reserva, y solo la puede llamar el personal; `estadisticas_uso()` calcula el panel del RF12; `publicar_normativa()`, `asignar_turno()` y `eliminar_maquina()` hacen cumplir las reglas del RF13 y dejan la bitácora; `generar_franjas()` crea el horario.
 
 ### PostgreSQL
 
-- **Las catorce tablas** y la vista de disponibilidad, descritas en el [modelo de datos](modelo-de-datos.md).
+- **Las quince tablas** y la vista de disponibilidad, descritas en el [modelo de datos](modelo-de-datos.md).
 - **Las políticas de seguridad por fila**, que son un componente en sí mismo y no un detalle: se ejecutan dentro de la base, antes de devolver cualquier dato, y son las que impiden que un usuario vea las reservas o las medidas corporales de otro.
 
 ---
@@ -140,15 +140,15 @@ Poniendo las reglas dentro de PostgreSQL, la base misma rechaza la petición sin
 | RF1 Registro e inicio de sesión | Cuenta → Cliente de datos → Autenticación → `perfiles` |
 | RF2 Reservas por franja | Reservas → Cliente → API de datos → `vista_disponibilidad`, `reservas` |
 | RF3 Cancelación | Reservas → Cliente → Funciones (`cancelar_reserva`) → `reservas`, `configuracion` |
-| RF4 Asistencia por QR | Reservas → Cámara y Cliente → Funciones → `asistencias` |
+| RF4 Asistencia por QR | Reservas → Cámara y Cliente → Funciones (`validar_ingreso`, `validar_ingreso_manual`) → `asistencias` |
 | RF5 Catálogo | Gimnasio → Cliente → API de datos → `maquinas`, `ejercicios` |
 | RF6 Normativa | Gimnasio → Cliente → API de datos → `normativa` |
 | RF7 Instructores | Gimnasio → Cliente → API → `asignaciones_instructor` |
 | RF8 Datos antropométricos | Cuenta → Cliente → API → `medidas_antropometricas` |
-| RF9 Historial | Reservas → Cliente → API → `reservas`, `asistencias` |
+| RF9 Historial | Reservas → Cliente → API → `reservas`, `asistencias`; Entrenamiento (puerto) → `rutinas` |
 | RF10 Datos personales | Cuenta → Cliente → API → `perfiles` |
 | RF11 Rutinas | Entrenamiento → Cliente → API (lectura) y Funciones (`crear_rutina`, `eliminar_rutina`) → `rutinas`, `rutina_ejercicios` |
-| RF12 Estadísticas | Administración → Cliente → API → `reservas`, `asistencias` |
-| RF13 Gestión de contenidos | Administración → Cliente → API → `maquinas`, `ejercicios`, `normativa` |
+| RF12 Estadísticas | Administración → Cliente → Funciones (`estadisticas_uso`) → `reservas`, `asistencias`, `franjas`, `bitacora` |
+| RF13 Gestión de contenidos | Administración → Cliente → API y Funciones (`eliminar_maquina`, `publicar_normativa`, `asignar_turno`, `actualizar_persona`) → `maquinas`, `ejercicios`, `normativa`, `asignaciones_instructor`, `perfiles`, `configuracion`, `bitacora` |
 
 Los trece requerimientos pasan por el mismo cliente de datos. Ese componente es el cuello de botella del diseño a propósito: es un solo sitio donde poner el manejo de errores de red, los reintentos y el registro de fallos.
