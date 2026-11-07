@@ -3,7 +3,7 @@
          agrega solo, pero el APK de entrega (release) lo necesita aquí. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="ufit"
+        android:label="UFIT"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
